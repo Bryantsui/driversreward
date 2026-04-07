@@ -1,0 +1,329 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Region {
+  HK
+  BR
+}
+
+enum DriverStatus {
+  PENDING_VERIFICATION
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum RedemptionStatus {
+  PENDING
+  PROCESSING
+  FULFILLED
+  FAILED
+  CANCELLED
+}
+
+enum ConsentType {
+  DATA_COLLECTION
+  MARKETING
+  DATA_SHARING
+}
+
+enum TripReviewStatus {
+  PENDING_REVIEW
+  APPROVED
+  FLAGGED
+  REJECTED
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  REVIEWER
+  VIEWER
+}
+
+model Driver {
+  id            String       @id @default(uuid()) @db.Uuid
+  email         String       @unique @db.VarChar(255)
+  phone         String?      @db.VarChar(50)
+  nameEncrypted Bytes?       @map("name_encrypted")
+  passwordHash  String       @map("password_hash") @db.VarChar(255)
+  region        Region
+  status        DriverStatus @default(PENDING_VERIFICATION)
+  pointsBalance Int          @default(0) @map("points_balance")
+  lifetimePoints Int         @default(0) @map("lifetime_points")
+  referralCode  String       @unique @map("referral_code") @db.VarChar(20)
+  referredBy    String?      @map("referred_by") @db.Uuid
+  emailVerified Boolean      @default(false) @map("email_verified")
+  phoneVerified Boolean      @default(false) @map("phone_verified")
+  resetTokenHash String?     @map("reset_token_hash") @db.VarChar(64)
+  resetTokenExpiresAt DateTime? @map("reset_token_expires_at") @db.Timestamptz()
+  lastActiveAt  DateTime?    @map("last_active_at") @db.Timestamptz()
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt     DateTime     @updatedAt @map("updated_at") @db.Timestamptz()
+  deletedAt     DateTime?    @map("deleted_at") @db.Timestamptz()
+
+  trips          Trip[]
+  pointLedger    PointLedger[]
+  redemptions    Redemption[]
+  refreshTokens  RefreshToken[]
+  consents       Consent[]
+  auditLogs      AuditLog[]
+  activitySyncs  ActivitySync[]
+  uberSessions   UberSession[]
+
+  referrer       Driver?  @relation("DriverReferrals", fields: [referredBy], references: [id])
+  referrals      Driver[] @relation("DriverReferrals")
+
+  @@index([email], map: "idx_driver_email")
+  @@index([region, status], map: "idx_driver_region_status")
+  @@index([referralCode], map: "idx_driver_referral_code")
+  @@index([createdAt], map: "idx_driver_created_at")
+  @@map("drivers")
+}
+
+model Trip {
+  id              String   @id @default(uuid()) @db.Uuid
+  driverId        String   @map("driver_id") @db.Uuid
+  tripUuid        String   @map("trip_uuid") @db.VarChar(100)
+  region          Region
+  vehicleType     String?  @map("vehicle_type") @db.VarChar(50)
+  requestedAt     DateTime @map("requested_at") @db.Timestamptz()
+  durationSeconds Int?     @map("duration_seconds")
+  distanceMeters  Int?     @map("distance_meters")
+  currency        String   @db.VarChar(10)
+
+  // Full addresses
+  pickupAddress   String?  @map("pickup_address") @db.VarChar(500)
+  dropoffAddress  String?  @map("dropoff_address") @db.VarChar(500)
+  pickupDistrict  String?  @map("pickup_district") @db.VarChar(100)
+  dropoffDistrict String?  @map("dropoff_district") @db.VarChar(100)
+
+  // Coordinates (extracted from Google Maps static image URL)
+  pickupLat       Decimal? @map("pickup_lat") @db.Decimal(10, 6)
+  pickupLng       Decimal? @map("pickup_lng") @db.Decimal(10, 6)
+  dropoffLat      Decimal? @map("dropoff_lat") @db.Decimal(10, 6)
+  dropoffLng      Decimal? @map("dropoff_lng") @db.Decimal(10, 6)
+  mapImageUrl     String?  @map("map_image_url") @db.Text
+
+  // Fare breakdown
+  fareAmount      Decimal  @map("fare_amount") @db.Decimal(12, 2)
+  serviceFee      Decimal  @default(0) @map("service_fee") @db.Decimal(12, 2)
+  serviceFeePercent Decimal? @map("service_fee_percent") @db.Decimal(5, 2)
+  bookingFee      Decimal  @default(0) @map("booking_fee") @db.Decimal(12, 2)
+  bookingFeePayment Decimal @default(0) @map("booking_fee_payment") @db.Decimal(12, 2)
+  otherEarnings   Decimal  @default(0) @map("other_earnings") @db.Decimal(12, 2)
+  tolls           Decimal  @default(0) @db.Decimal(12, 2)
+  tips            Decimal  @default(0) @db.Decimal(12, 2)
+  surcharges      Decimal  @default(0) @db.Decimal(12, 2)
+  promotions      Decimal  @default(0) @db.Decimal(12, 2)
+  netEarnings     Decimal  @map("net_earnings") @db.Decimal(12, 2)
+
+  // Full fare breakdown tree (recursive structure from Uber API, preserves every line item)
+  fareBreakdown   Json?    @map("fare_breakdown")
+
+  // Trip metadata
+  isPoolType      Boolean  @default(false) @map("is_pool_type")
+  isSurge         Boolean  @default(false) @map("is_surge")
+  uberPoints      Int?     @map("uber_points")
+  dateRequested   String?  @map("date_requested") @db.VarChar(50)
+  timeRequested   String?  @map("time_requested") @db.VarChar(50)
+  tripNotes       String?  @map("trip_notes") @db.Text
+  statusType      String?  @map("status_type") @db.VarChar(50)
+
+  // Data integrity
+  payloadHash     String   @map("payload_hash") @db.VarChar(64)
+  rawPayload      Json?    @map("raw_payload")
+  rawPayloadPurgeAt DateTime? @map("raw_payload_purge_at") @db.Timestamptz()
+  source          String?  @db.VarChar(30)
+
+  pointsAwarded   Int      @default(0) @map("points_awarded")
+  processedAt     DateTime? @map("processed_at") @db.Timestamptz()
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  // Admin review
+  reviewStatus    TripReviewStatus @default(PENDING_REVIEW) @map("review_status")
+  reviewedBy      String?  @map("reviewed_by") @db.VarChar(100)
+  reviewedAt      DateTime? @map("reviewed_at") @db.Timestamptz()
+  reviewNote      String?  @map("review_note") @db.VarChar(500)
+  flagReason      String?  @map("flag_reason") @db.VarChar(500)
+
+  driver          Driver   @relation(fields: [driverId], references: [id])
+  pointLedger     PointLedger[]
+
+  @@unique([driverId, tripUuid], map: "uq_driver_trip")
+  @@index([tripUuid], map: "idx_trip_uuid")
+  @@index([driverId, requestedAt(sort: Desc)], map: "idx_trip_driver_date")
+  @@index([region, requestedAt(sort: Desc)], map: "idx_trip_region_date")
+  @@index([processedAt], map: "idx_trip_processed")
+  @@index([rawPayloadPurgeAt], map: "idx_trip_purge")
+  @@index([reviewStatus, createdAt(sort: Desc)], map: "idx_trip_review_status")
+  @@map("trips")
+}
+
+model ActivitySync {
+  id          String   @id @default(uuid()) @db.Uuid
+  driverId    String   @map("driver_id") @db.Uuid
+  region      Region
+  startDate   DateTime @map("start_date") @db.Date
+  endDate     DateTime @map("end_date") @db.Date
+  tripCount   Int      @map("trip_count")
+  source      String   @db.VarChar(30) // "chrome_extension" | "android_app"
+  syncedAt    DateTime @default(now()) @map("synced_at") @db.Timestamptz()
+
+  driver      Driver   @relation(fields: [driverId], references: [id])
+
+  @@index([driverId, syncedAt(sort: Desc)], map: "idx_activity_sync_driver")
+  @@map("activity_syncs")
+}
+
+model PointLedger {
+  id          String   @id @default(uuid()) @db.Uuid
+  driverId    String   @map("driver_id") @db.Uuid
+  tripId      String?  @map("trip_id") @db.Uuid
+  amount      Int
+  balance     Int
+  type        String   @db.VarChar(30) // "trip_earn" | "referral_bonus" | "redemption" | "adjustment" | "expiry"
+  description String?  @db.VarChar(500)
+  expiresAt   DateTime? @map("expires_at") @db.Timestamptz()
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  driver      Driver   @relation(fields: [driverId], references: [id])
+  trip        Trip?    @relation(fields: [tripId], references: [id])
+
+  @@index([driverId, createdAt(sort: Desc)], map: "idx_ledger_driver_date")
+  @@index([type, createdAt], map: "idx_ledger_type_date")
+  @@index([expiresAt], map: "idx_ledger_expiry")
+  @@map("point_ledger")
+}
+
+model GiftCard {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @db.VarChar(200)
+  provider    String   @db.VarChar(100)
+  region      Region
+  pointsCost  Int      @map("points_cost")
+  faceValue   Decimal  @map("face_value") @db.Decimal(10, 2)
+  currency    String   @db.VarChar(10)
+  imageUrl    String?  @map("image_url") @db.VarChar(500)
+  isActive    Boolean  @default(true) @map("is_active")
+  stockCount  Int      @default(0) @map("stock_count")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+
+  redemptions Redemption[]
+
+  @@index([region, isActive], map: "idx_gift_card_region_active")
+  @@index([pointsCost], map: "idx_gift_card_cost")
+  @@map("gift_cards")
+}
+
+model Redemption {
+  id              String           @id @default(uuid()) @db.Uuid
+  driverId        String           @map("driver_id") @db.Uuid
+  giftCardId      String           @map("gift_card_id") @db.Uuid
+  pointsSpent     Int              @map("points_spent")
+  status          RedemptionStatus @default(PENDING)
+  fulfillmentRef  String?          @map("fulfillment_ref") @db.VarChar(200)
+  giftCardCode    String?          @map("gift_card_code") @db.VarChar(500)  // encrypted
+  failureReason   String?          @map("failure_reason") @db.VarChar(500)
+  confirmedAt     DateTime?        @map("confirmed_at") @db.Timestamptz()
+  fulfilledAt     DateTime?        @map("fulfilled_at") @db.Timestamptz()
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz()
+
+  driver          Driver           @relation(fields: [driverId], references: [id])
+  giftCard        GiftCard         @relation(fields: [giftCardId], references: [id])
+
+  @@index([driverId, createdAt(sort: Desc)], map: "idx_redemption_driver_date")
+  @@index([status], map: "idx_redemption_status")
+  @@map("redemptions")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  driverId  String   @map("driver_id") @db.Uuid
+  tokenHash String   @unique @map("token_hash") @db.VarChar(64)
+  userAgent String?  @map("user_agent") @db.VarChar(500)
+  ipAddress String?  @map("ip_address") @db.VarChar(45)
+  expiresAt DateTime @map("expires_at") @db.Timestamptz()
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz()
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  driver    Driver   @relation(fields: [driverId], references: [id])
+
+  @@index([driverId], map: "idx_refresh_token_driver")
+  @@index([expiresAt], map: "idx_refresh_token_expiry")
+  @@map("refresh_tokens")
+}
+
+model Consent {
+  id          String      @id @default(uuid()) @db.Uuid
+  driverId    String      @map("driver_id") @db.Uuid
+  type        ConsentType
+  granted     Boolean
+  ipAddress   String?     @map("ip_address") @db.VarChar(45)
+  userAgent   String?     @map("user_agent") @db.VarChar(500)
+  grantedAt   DateTime    @default(now()) @map("granted_at") @db.Timestamptz()
+  revokedAt   DateTime?   @map("revoked_at") @db.Timestamptz()
+
+  driver      Driver      @relation(fields: [driverId], references: [id])
+
+  @@index([driverId, type], map: "idx_consent_driver_type")
+  @@map("consents")
+}
+
+model Admin {
+  id            String    @id @default(uuid()) @db.Uuid
+  email         String    @unique @db.VarChar(255)
+  passwordHash  String    @map("password_hash") @db.VarChar(255)
+  name          String    @db.VarChar(200)
+  role          AdminRole @default(REVIEWER)
+  isActive      Boolean   @default(true) @map("is_active")
+  lastLoginAt   DateTime? @map("last_login_at") @db.Timestamptz()
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
+
+  @@map("admins")
+}
+
+model UberSession {
+  id             String   @id @default(uuid()) @db.Uuid
+  driverId       String   @map("driver_id") @db.Uuid
+  source         String   @db.VarChar(30) // "chrome_extension" | "android_app"
+  isActive       Boolean  @default(true) @map("is_active")
+  lastHeartbeat  DateTime @default(now()) @map("last_heartbeat") @db.Timestamptz()
+  sessionStarted DateTime @default(now()) @map("session_started") @db.Timestamptz()
+  sessionEnded   DateTime? @map("session_ended") @db.Timestamptz()
+  userAgent      String?  @map("user_agent") @db.VarChar(500)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  driver         Driver   @relation(fields: [driverId], references: [id])
+
+  @@index([driverId, isActive], map: "idx_uber_session_driver_active")
+  @@index([lastHeartbeat], map: "idx_uber_session_heartbeat")
+  @@map("uber_sessions")
+}
+
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  driverId    String?  @map("driver_id") @db.Uuid
+  adminId     String?  @map("admin_id") @db.VarChar(100)
+  action      String   @db.VarChar(100)
+  resource    String   @db.VarChar(100)
+  resourceId  String?  @map("resource_id") @db.VarChar(100)
+  details     Json?
+  ipAddress   String?  @map("ip_address") @db.VarChar(45)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  driver      Driver?  @relation(fields: [driverId], references: [id])
+
+  @@index([driverId, createdAt(sort: Desc)], map: "idx_audit_driver_date")
+  @@index([action, createdAt(sort: Desc)], map: "idx_audit_action_date")
+  @@index([resource, resourceId], map: "idx_audit_resource")
+  @@map("audit_logs")
+}

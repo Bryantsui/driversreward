@@ -1,0 +1,16 @@
+-- AlterTable
+ALTER TABLE "trips" ADD COLUMN     "booking_fee_payment" DECIMAL(12,2) NOT NULL DEFAULT 0,
+ADD COLUMN     "date_requested" VARCHAR(50),
+ADD COLUMN     "dropoff_address" VARCHAR(500),
+ADD COLUMN     "dropoff_lat" DECIMAL(10,6),
+ADD COLUMN     "dropoff_lng" DECIMAL(10,6),
+ADD COLUMN     "map_image_url" TEXT,
+ADD COLUMN     "other_earnings" DECIMAL(12,2) NOT NULL DEFAULT 0,
+ADD COLUMN     "pickup_address" VARCHAR(500),
+ADD COLUMN     "pickup_lat" DECIMAL(10,6),
+ADD COLUMN     "pickup_lng" DECIMAL(10,6),
+ADD COLUMN     "promotions" DECIMAL(12,2) NOT NULL DEFAULT 0,
+ADD COLUMN     "service_fee_percent" DECIMAL(5,2),
+ADD COLUMN     "source" VARCHAR(30),
+ADD COLUMN     "surcharges" DECIMAL(12,2) NOT NULL DEFAULT 0,
+ADD COLUMN     "time_requested" VARCHAR(50);

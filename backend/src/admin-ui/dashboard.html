@@ -1,0 +1,1475 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-gray-50">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DriversBonus — Admin Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    [x-cloak] { display: none !important; }
+    .tab-active { border-bottom: 2px solid #6366f1; color: #4f46e5; font-weight: 600; }
+    .badge { display: inline-flex; align-items: center; border-radius: 9999px; padding: 2px 10px; font-size: 0.75rem; font-weight: 600; }
+    .badge-pending { background: #fef3c7; color: #92400e; }
+    .badge-approved { background: #d1fae5; color: #065f46; }
+    .badge-flagged { background: #fee2e2; color: #991b1b; }
+    .badge-rejected { background: #fecaca; color: #7f1d1d; }
+    .badge-hk { background: #dbeafe; color: #1e40af; }
+    .badge-br { background: #dcfce7; color: #166534; }
+    .kpi-card { transition: box-shadow 0.15s; }
+    .kpi-card:hover { box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+    .json-viewer { font-family: 'Menlo', 'Consolas', monospace; font-size: 0.8rem; white-space: pre-wrap; word-break: break-all; max-height: 600px; overflow-y: auto; background: #1e293b; color: #e2e8f0; border-radius: 0.5rem; padding: 1rem; }
+    .json-key { color: #93c5fd; }
+    .json-string { color: #86efac; }
+    .json-number { color: #fcd34d; }
+    .json-boolean { color: #f9a8d4; }
+    .json-null { color: #94a3b8; }
+    .fade-in { animation: fadeIn 0.2s ease-in; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+    input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; }
+  </style>
+</head>
+<body class="h-full">
+
+<!-- Login Screen -->
+<div id="login-screen" class="min-h-full flex items-center justify-center py-12 px-4">
+  <div class="max-w-md w-full space-y-8">
+    <div class="text-center">
+      <h1 class="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
+      <p class="mt-2 text-sm text-gray-500">DriversBonus — driversbonus.com</p>
+    </div>
+    <form id="login-form" class="mt-8 space-y-6 bg-white p-8 rounded-xl shadow-lg">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+        <input id="login-email" type="email" required class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="admin@driversbonus.com" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+        <input id="login-password" type="password" required class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Enter password" />
+      </div>
+      <div id="login-error" class="hidden text-sm text-red-600 bg-red-50 p-3 rounded-lg"></div>
+      <button type="submit" class="w-full py-2.5 px-4 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors">Sign In</button>
+    </form>
+  </div>
+</div>
+
+<!-- Dashboard (hidden until logged in) -->
+<div id="dashboard" class="hidden min-h-full">
+  <!-- Top Bar -->
+  <nav class="bg-white border-b border-gray-200 sticky top-0 z-30">
+    <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between h-14 items-center">
+        <div class="flex items-center gap-3">
+          <span class="font-bold text-lg text-gray-900">DriversBonus</span>
+          <span class="text-xs text-gray-400">Admin</span>
+        </div>
+        <div class="flex items-center gap-4">
+          <span id="admin-name" class="text-sm text-gray-600"></span>
+          <button id="logout-btn" class="text-sm text-red-600 hover:text-red-800 font-medium">Logout</button>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Tabs -->
+  <div class="bg-white border-b border-gray-200 sticky top-14 z-20">
+    <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
+      <nav class="flex gap-6 -mb-px" id="main-tabs">
+        <button data-tab="overview" class="py-3 px-1 text-sm tab-active">Overview</button>
+        <button data-tab="drivers" class="py-3 px-1 text-sm text-gray-500 hover:text-gray-700">Drivers</button>
+        <button data-tab="trips" class="py-3 px-1 text-sm text-gray-500 hover:text-gray-700">Trips</button>
+        <button data-tab="redemptions" class="py-3 px-1 text-sm text-gray-500 hover:text-gray-700">Redemptions</button>
+        <button data-tab="gift-cards" class="py-3 px-1 text-sm text-gray-500 hover:text-gray-700">Gift Cards</button>
+        <button data-tab="sessions" class="py-3 px-1 text-sm text-gray-500 hover:text-gray-700">Sessions</button>
+      </nav>
+    </div>
+  </div>
+
+  <!-- Content Area -->
+  <main class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6" id="main-content"></main>
+</div>
+
+<script>
+const API = '/api/admin';
+let token = sessionStorage.getItem('admin_token');
+let adminInfo = JSON.parse(sessionStorage.getItem('admin_info') || 'null');
+let currentTab = 'overview';
+
+// ── Helpers ──────────────────────────────────────────
+async function api(path, opts = {}) {
+  const res = await fetch(`${API}${path}`, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, ...(opts.headers || {}) },
+  });
+  if (res.status === 401) { logout(); throw new Error('Session expired'); }
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || e.message || res.statusText); }
+  return res.json();
+}
+
+function $(sel) { return document.querySelector(sel); }
+function $$(sel) { return document.querySelectorAll(sel); }
+function el(tag, attrs = {}, ...children) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'className') e.className = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2).toLowerCase(), v);
+    else if (k === 'html') e.innerHTML = v;
+    else e.setAttribute(k, v);
+  }
+  for (const c of children) {
+    if (typeof c === 'string') e.appendChild(document.createTextNode(c));
+    else if (c) e.appendChild(c);
+  }
+  return e;
+}
+
+function fmt(n, decimals = 0) {
+  if (n == null) return '—';
+  return Number(n).toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+
+function fmtCurrency(n, currency) {
+  if (n == null) return '—';
+  try { return Number(n).toLocaleString(undefined, { style: 'currency', currency: currency || 'HKD' }); }
+  catch { return `${currency || ''} ${fmt(n, 2)}`; }
+}
+
+function fmtDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function fmtDateTime(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function fmtDuration(seconds) {
+  if (!seconds) return '—';
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}m ${s}s`;
+}
+
+function fmtDistance(meters) {
+  if (!meters) return '—';
+  return `${(meters / 1000).toFixed(2)} km`;
+}
+
+function reviewBadge(status) {
+  const map = { PENDING_REVIEW: 'badge-pending', APPROVED: 'badge-approved', FLAGGED: 'badge-flagged', REJECTED: 'badge-rejected' };
+  return `<span class="badge ${map[status] || 'badge-pending'}">${status.replace('_', ' ')}</span>`;
+}
+
+function regionBadge(r) {
+  const map = { HK: 'badge-hk', BR: 'badge-br' };
+  return `<span class="badge ${map[r] || ''}">${r}</span>`;
+}
+
+function renderBreakdownTree(items, depth) {
+  if (!items || !items.length) return '';
+  let html = '<table class="w-full text-sm">';
+  for (const item of items) {
+    const isBold = item.style?.font === 'BOLD';
+    const hasSolidTop = item.style?.borderTop === 'SOLID';
+    const hasDashedTop = item.style?.borderTop === 'DASHED';
+    const indent = depth * 16;
+    const labelCls = isBold ? 'font-bold text-gray-900' : 'text-gray-600';
+    const valCls = isBold ? 'font-bold text-gray-900' : (item.amount < 0 ? 'text-red-600' : '');
+    const borderCls = hasSolidTop ? 'border-t border-gray-300' : (hasDashedTop ? 'border-t border-dashed border-gray-200' : '');
+
+    html += `<tr class="${borderCls}">
+      <td class="py-1.5 ${labelCls}" style="padding-left:${indent}px">${item.label}`;
+    if (item.disclaimers?.length) {
+      for (const d of item.disclaimers) {
+        if (d.type === 'INLINE' && d.text.length < 60) {
+          html += ` <span class="text-xs text-gray-400">${d.text}</span>`;
+        }
+      }
+    }
+    html += `</td><td class="py-1.5 text-right whitespace-nowrap ${valCls}">${item.formattedValue}</td></tr>`;
+
+    if (item.items?.length) {
+      html += '</table>';
+      html += renderBreakdownTree(item.items, depth + 1);
+      html += '<table class="w-full text-sm">';
+    }
+  }
+  html += '</table>';
+  return html;
+}
+
+function syntaxHighlightJSON(json) {
+  if (typeof json !== 'string') json = JSON.stringify(json, null, 2);
+  return json
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?)/g, (match) => {
+      if (/:$/.test(match)) return `<span class="json-key">${match}</span>`;
+      return `<span class="json-string">${match}</span>`;
+    })
+    .replace(/\b(-?\d+\.?\d*([eE][+-]?\d+)?)\b/g, '<span class="json-number">$1</span>')
+    .replace(/\b(true|false)\b/g, '<span class="json-boolean">$1</span>')
+    .replace(/\bnull\b/g, '<span class="json-null">null</span>');
+}
+
+// ── Auth ─────────────────────────────────────────────
+$('#login-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errEl = $('#login-error');
+  errEl.classList.add('hidden');
+  try {
+    const data = await fetch(`${API}/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: $('#login-email').value, password: $('#login-password').value }),
+    }).then(r => r.json());
+    if (!data.token) throw new Error(data.error || data.message || 'Login failed');
+    token = data.token;
+    adminInfo = data.admin;
+    sessionStorage.setItem('admin_token', token);
+    sessionStorage.setItem('admin_info', JSON.stringify(adminInfo));
+    showDashboard();
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.classList.remove('hidden');
+  }
+});
+
+function logout() {
+  token = null; adminInfo = null;
+  sessionStorage.removeItem('admin_token');
+  sessionStorage.removeItem('admin_info');
+  $('#login-screen').classList.remove('hidden');
+  $('#dashboard').classList.add('hidden');
+}
+
+$('#logout-btn').addEventListener('click', logout);
+
+function showDashboard() {
+  $('#login-screen').classList.add('hidden');
+  $('#dashboard').classList.remove('hidden');
+  $('#admin-name').textContent = adminInfo?.name || adminInfo?.email || 'Admin';
+  navigateTo(location.hash.slice(1) || 'overview');
+}
+
+// ── Routing ──────────────────────────────────────────
+function navigateTo(hash) {
+  if (!hash) hash = 'overview';
+  location.hash = hash;
+
+  const [view, ...rest] = hash.split('/');
+  currentTab = view;
+
+  $$('#main-tabs button').forEach(b => {
+    b.classList.toggle('tab-active', b.dataset.tab === view);
+    if (b.dataset.tab !== view) b.classList.add('text-gray-500');
+    else b.classList.remove('text-gray-500');
+  });
+
+  const content = $('#main-content');
+  content.innerHTML = '<div class="flex justify-center py-20"><div class="animate-spin h-8 w-8 border-4 border-indigo-500 border-t-transparent rounded-full"></div></div>';
+
+  switch (view) {
+    case 'overview': renderOverview(content); break;
+    case 'drivers': renderDrivers(content); break;
+    case 'driver': renderDriverDetail(content, rest[0]); break;
+    case 'driver-ledger': renderDriverLedger(content, rest[0]); break;
+    case 'trips': renderTrips(content); break;
+    case 'trip': renderTripDetail(content, rest[0]); break;
+    case 'redemptions': renderRedemptions(content); break;
+    case 'gift-cards': renderGiftCards(content); break;
+    case 'sessions': renderSessions(content); break;
+    default: renderOverview(content);
+  }
+}
+
+$$('#main-tabs button').forEach(b => b.addEventListener('click', () => navigateTo(b.dataset.tab)));
+window.addEventListener('hashchange', () => { if (token) navigateTo(location.hash.slice(1)); });
+
+// ── Overview ─────────────────────────────────────────
+async function renderOverview(container) {
+  try {
+    const data = await api('/dashboard/by-region');
+    container.innerHTML = '';
+    container.classList.add('fade-in');
+
+    const title = el('h2', { className: 'text-xl font-bold text-gray-900 mb-6' }, 'Dashboard Overview');
+    container.appendChild(title);
+
+    for (const [label, key] of [['All Regions', 'all'], ['Hong Kong', 'HK'], ['Brazil', 'BR']]) {
+      const stats = data[key];
+      const section = el('div', { className: 'mb-8' });
+      const heading = el('h3', { className: 'text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2' });
+      heading.innerHTML = key === 'all' ? label : `${label} ${regionBadge(key)}`;
+      section.appendChild(heading);
+
+      const grid = el('div', { className: 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4' });
+
+      const cards = [
+        { label: 'Drivers', value: fmt(stats.drivers.total), sub: `${fmt(stats.drivers.activeThisWeek)} active this week`, color: 'indigo' },
+        { label: 'Trips', value: fmt(stats.trips.total), sub: `${fmt(stats.trips.pendingReview)} pending review`, color: 'blue' },
+        { label: 'Pending', value: fmt(stats.trips.pendingReview), sub: `${fmt(stats.trips.flagged)} flagged`, color: 'yellow' },
+        { label: 'Approved', value: fmt(stats.trips.approved), sub: `${fmt(stats.trips.rejected)} rejected`, color: 'green' },
+        { label: 'Points Issued', value: fmt(stats.points.totalIssued), sub: `${fmt(stats.redemptions.total)} redemptions`, color: 'purple' },
+        { label: 'Active Sessions', value: fmt(stats.sessions.activeNow), sub: 'Last 30 min', color: 'teal' },
+      ];
+
+      for (const c of cards) {
+        const card = el('div', { className: `kpi-card bg-white rounded-xl shadow-sm border border-gray-100 p-4` });
+        card.innerHTML = `
+          <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">${c.label}</p>
+          <p class="text-2xl font-bold text-gray-900 mt-1">${c.value}</p>
+          <p class="text-xs text-gray-400 mt-1">${c.sub}</p>
+        `;
+        grid.appendChild(card);
+      }
+      section.appendChild(grid);
+      container.appendChild(section);
+    }
+  } catch (err) {
+    container.innerHTML = `<div class="text-red-600 bg-red-50 p-4 rounded-lg">${err.message}</div>`;
+  }
+}
+
+// ── Drivers ──────────────────────────────────────────
+let driversPage = 1;
+let driversFilters = { region: '', status: '' };
+
+async function renderDrivers(container) {
+  container.innerHTML = '';
+  container.classList.add('fade-in');
+
+  const header = el('div', { className: 'flex flex-wrap items-center justify-between gap-4 mb-6' });
+  header.appendChild(el('h2', { className: 'text-xl font-bold text-gray-900' }, 'Drivers'));
+
+  const filters = el('div', { className: 'flex gap-3 flex-wrap' });
+  filters.innerHTML = `
+    <select id="drv-region" class="text-sm border border-gray-300 rounded-lg px-3 py-2">
+      <option value="">All Regions</option><option value="HK">Hong Kong</option><option value="BR">Brazil</option>
+    </select>
+    <select id="drv-status" class="text-sm border border-gray-300 rounded-lg px-3 py-2">
+      <option value="">All Statuses</option>
+      <option value="ACTIVE">Active</option><option value="PENDING_VERIFICATION">Pending</option>
+      <option value="SUSPENDED">Suspended</option>
+    </select>
+    <button id="drv-apply" class="text-sm bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700">Apply</button>
+  `;
+  header.appendChild(filters);
+  container.appendChild(header);
+
+  const tableWrap = el('div', { id: 'drivers-table-wrap' });
+  container.appendChild(tableWrap);
+
+  const applyBtn = container.querySelector('#drv-apply');
+  applyBtn.addEventListener('click', () => {
+    driversFilters.region = container.querySelector('#drv-region').value;
+    driversFilters.status = container.querySelector('#drv-status').value;
+    driversPage = 1;
+    loadDriversTable(tableWrap);
+  });
+
+  container.querySelector('#drv-region').value = driversFilters.region;
+  container.querySelector('#drv-status').value = driversFilters.status;
+
+  loadDriversTable(tableWrap);
+}
+
+async function loadDriversTable(wrap) {
+  wrap.innerHTML = '<div class="flex justify-center py-12"><div class="animate-spin h-6 w-6 border-4 border-indigo-500 border-t-transparent rounded-full"></div></div>';
+  try {
+    const params = new URLSearchParams({ page: driversPage, limit: 20 });
+    if (driversFilters.region) params.set('region', driversFilters.region);
+    if (driversFilters.status) params.set('status', driversFilters.status);
+
+    const data = await api(`/drivers?${params}`);
+    wrap.innerHTML = '';
+
+    const tableContainer = el('div', { className: 'bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden' });
+    const table = el('table', { className: 'min-w-full divide-y divide-gray-200' });
+    table.innerHTML = `
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Region</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+          <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Trips</th>
+          <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Points</th>
+          <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Lifetime Pts</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last Active</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Joined</th>
+        </tr>
+      </thead>
+    `;
+
+    const tbody = el('tbody', { className: 'divide-y divide-gray-100' });
+    for (const d of data.drivers) {
+      const tr = el('tr', { className: 'hover:bg-gray-50 cursor-pointer', onClick: () => navigateTo(`driver/${d.id}`) });
+      tr.innerHTML = `
+        <td class="px-4 py-3 text-sm font-medium text-indigo-600">${d.email}</td>
+        <td class="px-4 py-3 text-sm">${regionBadge(d.region)}</td>
+        <td class="px-4 py-3 text-sm">${d.status}</td>
+        <td class="px-4 py-3 text-sm text-right">${fmt(d._count.trips)}</td>
+        <td class="px-4 py-3 text-sm text-right font-medium">${fmt(d.pointsBalance)}</td>
+        <td class="px-4 py-3 text-sm text-right">${fmt(d.lifetimePoints)}</td>
+        <td class="px-4 py-3 text-sm text-gray-500">${fmtDateTime(d.lastActiveAt)}</td>
+        <td class="px-4 py-3 text-sm text-gray-500">${fmtDate(d.createdAt)}</td>
+      `;
+      tbody.appendChild(tr);
+    }
+    if (data.drivers.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" class="px-4 py-8 text-center text-gray-400">No drivers found</td></tr>';
+    }
+    table.appendChild(tbody);
+    tableContainer.appendChild(table);
+    wrap.appendChild(tableContainer);
+
+    const totalPages = Math.ceil(data.total / data.limit);
+    if (totalPages > 1) {
+      const pager = el('div', { className: 'flex items-center justify-between mt-4 text-sm text-gray-500' });
+      pager.innerHTML = `
+        <span>Page ${data.page} of ${totalPages} (${fmt(data.total)} drivers)</span>
+        <div class="flex gap-2">
+          <button class="px-3 py-1 rounded border ${data.page <= 1 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-gray-100'}" ${data.page <= 1 ? 'disabled' : ''} data-dir="prev">Prev</button>
+          <button class="px-3 py-1 rounded border ${data.page >= totalPages ? 'opacity-40 cursor-not-allowed' : 'hover:bg-gray-100'}" ${data.page >= totalPages ? 'disabled' : ''} data-dir="next">Next</button>
+        </div>
+      `;
+      pager.querySelector('[data-dir="prev"]')?.addEventListener('click', () => { if (driversPage > 1) { driversPage--; loadDriversTable(wrap); } });
+      pager.querySelector('[data-dir="next"]')?.addEventListener('click', () => { if (driversPage < totalPages) { driversPage++; loadDriversTable(wrap); } });
+      wrap.appendChild(pager);
+    }
+  } catch (err) {
+    wrap.innerHTML = `<div class="text-red-600 bg-red-50 p-4 rounded-lg">${err.message}</div>`;
+  }
+}
+
+// ── Driver Detail ────────────────────────────────────
+async function renderDriverDetail(container, driverId) {
+  if (!driverId) { navigateTo('drivers'); return; }
+  try {
+    const data = await api(`/drivers/${driverId}`);
+    container.innerHTML = '';
+    container.classList.add('fade-in');
+
+    const back = el('button', { className: 'text-sm text-indigo-600 hover:text-indigo-800 mb-4 flex items-center gap-1', onClick: () => navigateTo('drivers') });
+    back.innerHTML = '&larr; Back to Drivers';
+    container.appendChild(back);
+
+    const d = data.driver;
+    const header = el('div', { className: 'bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6' });
+    header.innerHTML = `
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 class="text-xl font-bold text-gray-900">${d.email}</h2>
+          <div class="flex items-center gap-2 mt-1">${regionBadge(d.region)} <span class="text-sm text-gray-500">${d.status}</span></div>
+        </div>
+        <div class="text-right">
+          <p class="text-sm text-gray-500">Points Balance</p>
+          <p class="text-3xl font-bold text-indigo-600">${fmt(d.pointsBalance)}</p>
+          <p class="text-xs text-gray-400">Lifetime: ${fmt(d.lifetimePoints)}</p>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-4 border-t border-gray-100">
+        <div><p class="text-xs text-gray-500">Referral Code</p><p class="font-mono text-sm">${d.referralCode}</p></div>
+        <div><p class="text-xs text-gray-500">Joined</p><p class="text-sm">${fmtDate(d.createdAt)}</p></div>
+        <div><p class="text-xs text-gray-500">Last Active</p><p class="text-sm">${fmtDateTime(d.lastActiveAt)}</p></div>
+        <div><p class="text-xs text-gray-500">Email Verified</p><p class="text-sm">${d.emailVerified ? 'Yes' : 'No'}</p></div>
+      </div>
+    `;
+    container.appendChild(header);
+
+    const statsGrid = el('div', { className: 'grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6' });
+    const tripStats = data.tripStats || {};
+    const statCards = [
+      { label: 'Total Trips', value: fmt(d._count.trips), color: 'blue' },
+      { label: 'This Week', value: fmt(data.weeklyContribution), color: 'green' },
+      { label: 'Pending Review', value: fmt(tripStats.PENDING_REVIEW || 0), color: 'yellow' },
+      { label: 'Redemptions', value: fmt(d._count.redemptions), color: 'purple' },
+    ];
+    for (const c of statCards) {
+      const card = el('div', { className: 'bg-white rounded-xl shadow-sm border border-gray-100 p-4' });
+      card.innerHTML = `<p class="text-xs text-gray-500">${c.label}</p><p class="text-2xl font-bold text-gray-900 mt-1">${c.value}</p>`;
+      statsGrid.appendChild(card);
+    }
+    container.appendChild(statsGrid);
+
+    // Session health
+    if (data.activeSession) {
+      const s = data.activeSession;
+      const sess = el('div', { className: 'bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6' });
+      sess.innerHTML = `
+        <h3 class="text-sm font-semibold text-gray-700 mb-2">Active Uber Session</h3>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+          <div><p class="text-xs text-gray-500">Source</p><p>${s.source}</p></div>
+          <div><p class="text-xs text-gray-500">Started</p><p>${fmtDateTime(s.sessionStarted)}</p></div>
+          <div><p class="text-xs text-gray-500">Last Heartbeat</p><p>${fmtDateTime(s.lastHeartbeat)}</p></div>
+          <div><p class="text-xs text-gray-500">Status</p><p class="font-medium text-green-600">Active</p></div>
+        </div>
+      `;
+      container.appendChild(sess);
+    }
+
+    // Recent syncs
+    if (data.recentSyncs?.length > 0) {
+      const syncBox = el('div', { className: 'bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6' });
+      syncBox.innerHTML = `<h3 class="text-sm font-semibold text-gray-700 mb-3">Recent Activity Syncs</h3>`;
+      const syncTable = el('table', { className: 'min-w-full divide-y divide-gray-200 text-sm' });
+      syncTable.innerHTML = `<thead class="bg-gray-50"><tr>
+        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Date Range</th>
+        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Source</th>
+        <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">Trips</th>
+        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Synced At</th>
+      </tr></thead>`;
+      const stbody = el('tbody', { className: 'divide-y divide-gray-100' });
+      for (const sync of data.recentSyncs) {
+        const tr = el('tr');
+        tr.innerHTML = `
+          <td class="px-3 py-2">${fmtDate(sync.startDate)} — ${fmtDate(sync.endDate)}</td>
+          <td class="px-3 py-2">${sync.source}</td>
+          <td class="px-3 py-2 text-right">${sync.tripCount}</td>
+          <td class="px-3 py-2 text-gray-500">${fmtDateTime(sync.syncedAt)}</td>
+        `;
+        stbody.appendChild(tr);
+      }
+      syncTable.appendChild(stbody);
+      syncBox.appendChild(syncTable);
+      container.appendChild(syncBox);
+    }
+
+    // Links
+    const links = el('div', { className: 'flex gap-4 mb-6' });
+    const viewTrips = el('button', {
+      className: 'text-sm text-indigo-600 hover:text-indigo-800 font-medium',
+      onClick: () => { tripsFilters.driverId = driverId; tripsPage = 1; navigateTo('trips'); },
+    }, 'View all trips →');
+    const viewLedger = el('button', {
+      className: 'text-sm text-indigo-600 hover:text-indigo-800 font-medium',
+      onClick: () => navigateTo(`driver-ledger/${driverId}`),
+    }, 'View point ledger →');
+    const viewRedemptions = el('button', {
+      className: 'text-sm text-indigo-600 hover:text-indigo-800 font-medium',
+      onClick: () => { redemptionsFilters.driverId = driverId; redemptionsPage = 1; navigateTo('redemptions'); },
+    }, 'View redemptions →');
+    links.appendChild(viewTrips);
+    links.appendChild(viewLedger);
+    links.appendChild(viewRedemptions);
+    container.appendChild(links);
+
+  } catch (err) {
+    container.innerHTML = `<div class="text-red-600 bg-red-50 p-4 rounded-lg">${err.message}</div>`;
+  }
+}
+
+// ── Trips ────────────────────────────────────────────
+let tripsPage = 1;
+let tripsFilters = { region: '', reviewStatus: '', driverId: '', dateFrom: '', dateTo: '', minFare: '', maxFare: '' };
+
+async function renderTrips(container) {
+  container.innerHTML = '';
+  container.classList.add('fade-in');
+
+  const header = el('div', { className: 'flex flex-wrap items-center justify-between gap-4 mb-4' });
+  header.appendChild(el('h2', { className: 'text-xl font-bold text-gray-900' }, 'Trips'));
+  const exportBtn = el('button', {
+    className: 'text-sm bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2',
+    onClick: () => exportTripsCSV(),
+  });
+  exportBtn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg> Export CSV';
+  header.appendChild(exportBtn);
+  container.appendChild(header);
+
+  const filterBar = el('div', { className: 'bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6' });
+  filterBar.innerHTML = `
+    <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+      <div>
+        <label class="text-xs text-gray-500 block mb-1">Region</label>
+        <select id="trip-region" class="w-full text-sm border border-gray-300 rounded-lg px-2 py-1.5">
+          <option value="">All</option><option value="HK">HK</option><option value="BR">BR</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs text-gray-500 block mb-1">Status</label>
+        <select id="trip-status" class="w-full text-sm border border-gray-300 rounded-lg px-2 py-1.5">
+          <option value="">All</option>
+          <option value="PENDING_REVIEW">Pending</option><option value="APPROVED">Approved</option>
+          <option value="FLAGGED">Flagged</option><option value="REJECTED">Rejected</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs text-gray-500 block mb-1">Date From</label>
+        <input id="trip-date-from" type="date" class="w-full text-sm border border-gray-300 rounded-lg px-2 py-1.5" />
+      </div>
+      <div>
+        <label class="text-xs text-gray-500 block mb-1">Date To</label>
+        <input id="trip-date-to" type="date" class="w-full text-sm border border-gray-300 rounded-lg px-2 py-1.5" />
+      </div>
+      <div>
+        <label class="text-xs text-gray-500 block mb-1">Min Fare</label>
+        <input id="trip-min-fare" type="number" step="0.01" class="w-full text-sm border border-gray-300 rounded-lg px-2 py-1.5" placeholder="0" />
+      </div>
+      <div>
+        <label class="text-xs text-gray-500 block mb-1">Max Fare</label>
+        <input id="trip-max-fare" type="number" step="0.01" class="w-full text-sm border border-gray-300 rounded-lg px-2 py-1.5" placeholder="∞" />
+      </div>
+      <div>
+        <label class="text-xs text-gray-500 block mb-1">Driver ID</label>
+        <input id="trip-driver-id" type="text" class="w-full text-sm border border-gray-300 rounded-lg px-2 py-1.5" placeholder="UUID" />
+      </div>
+      <div class="flex items-end gap-2">
+        <button id="trip-apply" class="text-sm bg-indigo-600 text-white px-4 py-1.5 rounded-lg hover:bg-indigo-700 whitespace-nowrap">Apply</button>
+        <button id="trip-clear" class="text-sm border border-gray-300 px-3 py-1.5 rounded-lg hover:bg-gray-50 whitespace-nowrap">Clear</button>
+      </div>
+    </div>
+  `;
+  container.appendChild(filterBar);
+
+  // Bulk action bar
+  const bulkBar = el('div', { id: 'bulk-bar', className: 'hidden bg-indigo-50 rounded-xl border border-indigo-200 p-3 mb-4 flex items-center gap-4' });
+  bulkBar.innerHTML = `
+    <span class="text-sm font-medium text-indigo-700"><span id="bulk-count">0</span> selected</span>
+    <button class="text-sm bg-green-600 text-white px-3 py-1 rounded-lg hover:bg-green-700" data-action="APPROVED">Approve</button>
+    <button class="text-sm bg-yellow-500 text-white px-3 py-1 rounded-lg hover:bg-yellow-600" data-action="FLAGGED">Flag</button>
+    <button class="text-sm bg-red-600 text-white px-3 py-1 rounded-lg hover:bg-red-700" data-action="REJECTED">Reject</button>
+    <button class="text-sm text-gray-500 hover:text-gray-700 ml-auto" id="bulk-deselect">Deselect All</button>
+  `;
+  container.appendChild(bulkBar);
+
+  const tableWrap = el('div', { id: 'trips-table-wrap' });
+  container.appendChild(tableWrap);
+
+  // Wire filters
+  const setVal = (id, val) => { const e = container.querySelector(id); if (e) e.value = val; };
+  setVal('#trip-region', tripsFilters.region);
+  setVal('#trip-status', tripsFilters.reviewStatus);
+  setVal('#trip-date-from', tripsFilters.dateFrom);
+  setVal('#trip-date-to', tripsFilters.dateTo);
+  setVal('#trip-min-fare', tripsFilters.minFare);
+  setVal('#trip-max-fare', tripsFilters.maxFare);
+  setVal('#trip-driver-id', tripsFilters.driverId);
+
+  container.querySelector('#trip-apply').addEventListener('click', () => {
+    tripsFilters.region = container.querySelector('#trip-region').value;
+    tripsFilters.reviewStatus = container.querySelector('#trip-status').value;
+    tripsFilters.dateFrom = container.querySelector('#trip-date-from').value;
+    tripsFilters.dateTo = container.querySelector('#trip-date-to').value;
+    tripsFilters.minFare = container.querySelector('#trip-min-fare').value;
+    tripsFilters.maxFare = container.querySelector('#trip-max-fare').value;
+    tripsFilters.driverId = container.querySelector('#trip-driver-id').value;
+    tripsPage = 1;
+    loadTripsTable(tableWrap, container);
+  });
+
+  container.querySelector('#trip-clear').addEventListener('click', () => {
+    tripsFilters = { region: '', reviewStatus: '', driverId: '', dateFrom: '', dateTo: '', minFare: '', maxFare: '' };
+    ['#trip-region','#trip-status','#trip-date-from','#trip-date-to','#trip-min-fare','#trip-max-fare','#trip-driver-id'].forEach(s => setVal(s, ''));
+    tripsPage = 1;
+    loadTripsTable(tableWrap, container);
+  });
+
+  loadTripsTable(tableWrap, container);
+}
+
+let selectedTripIds = new Set();
+
+function updateBulkBar(container) {
+  const bar = container.querySelector('#bulk-bar') || $('#bulk-bar');
+  if (!bar) return;
+  if (selectedTripIds.size > 0) {
+    bar.classList.remove('hidden');
+    bar.querySelector('#bulk-count').textContent = selectedTripIds.size;
+  } else {
+    bar.classList.add('hidden');
+  }
+}
+
+async function exportTripsCSV() {
+  const params = new URLSearchParams();
+  for (const [k, v] of Object.entries(tripsFilters)) { if (v) params.set(k, v); }
+  const url = `${API}/trips/export?${params}`;
+  try {
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    if (res.status === 401) { logout(); return; }
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || body.message || `HTTP ${res.status}`);
+    }
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = `trips_export_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(blobUrl);
+  } catch (err) {
+    alert('Export failed: ' + err.message);
+  }
+}
+
+async function doBulkAction(action, container) {
+  if (selectedTripIds.size === 0) return;
+  const note = action === 'APPROVED' ? undefined : prompt(`Reason for ${action.toLowerCase()}:`);
+  if (action !== 'APPROVED' && note === null) return;
+  try {
+    await api('/trips/bulk-review', {
+      method: 'POST',
+      body: JSON.stringify({ tripIds: Array.from(selectedTripIds), action, note }),
+    });
+    selectedTripIds.clear();
+    updateBulkBar(container);
+    loadTripsTable(container.querySelector('#trips-table-wrap') || container, container);
+  } catch (err) {
+    alert('Bulk action failed: ' + err.message);
+  }
+}
+
+async function loadTripsTable(wrap, rootContainer) {
+  wrap.innerHTML = '<div class="flex justify-center py-12"><div class="animate-spin h-6 w-6 border-4 border-indigo-500 border-t-transparent rounded-full"></div></div>';
+
+  // Wire bulk action buttons
+  const bulkBar = rootContainer?.querySelector('#bulk-bar') || $('#bulk-bar');
+  if (bulkBar) {
+    bulkBar.querySelectorAll('[data-action]').forEach(btn => {
+      btn.onclick = () => doBulkAction(btn.dataset.action, rootContainer || wrap.parentElement);
+    });
+    const desel = bulkBar.querySelector('#bulk-deselect');
+    if (desel) desel.onclick = () => {
+      selectedTripIds.clear();
+      wrap.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+      updateBulkBar(rootContainer || wrap.parentElement);
+    };
+  }
+
+  try {
+    const params = new URLSearchParams({ page: tripsPage, limit: 20 });
+    for (const [k, v] of Object.entries(tripsFilters)) { if (v) params.set(k, v); }
+
+    const data = await api(`/trips?${params}`);
+    wrap.innerHTML = '';
+
+    const tableContainer = el('div', { className: 'bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto' });
+    const table = el('table', { className: 'min-w-full divide-y divide-gray-200' });
+    table.innerHTML = `
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="px-3 py-3 w-8"><input type="checkbox" id="select-all" class="rounded" /></th>
+          <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+          <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Region</th>
+          <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vehicle</th>
+          <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pickup</th>
+          <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dropoff</th>
+          <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase">Fare</th>
+          <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase">Net</th>
+          <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase">Points</th>
+          <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+          <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Driver</th>
+          <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+        </tr>
+      </thead>
+    `;
+
+    const tbody = el('tbody', { className: 'divide-y divide-gray-100' });
+    for (const t of data.trips) {
+      const tr = el('tr', { className: 'hover:bg-gray-50' });
+      const truncate = (s, max = 30) => s && s.length > max ? s.slice(0, max) + '...' : (s || '—');
+      tr.innerHTML = `
+        <td class="px-3 py-2.5"><input type="checkbox" class="trip-cb rounded" data-id="${t.id}" ${selectedTripIds.has(t.id) ? 'checked' : ''} /></td>
+        <td class="px-3 py-2.5 text-sm cursor-pointer text-indigo-600 hover:text-indigo-800 whitespace-nowrap trip-link">${t.dateRequested || fmtDate(t.requestedAt)}<br/><span class="text-xs text-gray-400">${t.timeRequested || ''}</span></td>
+        <td class="px-3 py-2.5 text-sm">${regionBadge(t.region)}</td>
+        <td class="px-3 py-2.5 text-sm">${t.vehicleType || '—'}</td>
+        <td class="px-3 py-2.5 text-sm text-gray-600" title="${t.pickupAddress || ''}">${truncate(t.pickupDistrict || t.pickupAddress)}</td>
+        <td class="px-3 py-2.5 text-sm text-gray-600" title="${t.dropoffAddress || ''}">${truncate(t.dropoffDistrict || t.dropoffAddress)}</td>
+        <td class="px-3 py-2.5 text-sm text-right font-medium">${fmtCurrency(t.fareAmount, t.currency)}</td>
+        <td class="px-3 py-2.5 text-sm text-right">${fmtCurrency(t.netEarnings, t.currency)}</td>
+        <td class="px-3 py-2.5 text-sm text-right font-medium">${fmt(t.pointsAwarded)}</td>
+        <td class="px-3 py-2.5 text-sm">${reviewBadge(t.reviewStatus)}</td>
+        <td class="px-3 py-2.5 text-sm"><a class="text-indigo-600 hover:underline cursor-pointer drv-link" data-drv="${t.driver?.id}">${t.driver?.email || '—'}</a></td>
+        <td class="px-3 py-2.5 text-sm">
+          <div class="flex gap-1">
+            ${t.reviewStatus !== 'APPROVED' ? `<button class="review-btn text-xs px-2 py-0.5 rounded bg-green-100 text-green-700 hover:bg-green-200" data-id="${t.id}" data-action="APPROVED">✓</button>` : ''}
+            ${t.reviewStatus !== 'FLAGGED' ? `<button class="review-btn text-xs px-2 py-0.5 rounded bg-yellow-100 text-yellow-700 hover:bg-yellow-200" data-id="${t.id}" data-action="FLAGGED">⚑</button>` : ''}
+            ${t.reviewStatus !== 'REJECTED' ? `<button class="review-btn text-xs px-2 py-0.5 rounded bg-red-100 text-red-700 hover:bg-red-200" data-id="${t.id}" data-action="REJECTED">✗</button>` : ''}
+          </div>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    }
+    if (data.trips.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="12" class="px-4 py-8 text-center text-gray-400">No trips found</td></tr>';
+    }
+    table.appendChild(tbody);
+    tableContainer.appendChild(table);
+    wrap.appendChild(tableContainer);
+
+    // Checkbox handling
+    wrap.querySelector('#select-all')?.addEventListener('change', (e) => {
+      wrap.querySelectorAll('.trip-cb').forEach(cb => {
+        cb.checked = e.target.checked;
+        if (e.target.checked) selectedTripIds.add(cb.dataset.id);
+        else selectedTripIds.delete(cb.dataset.id);
+      });
+      updateBulkBar(rootContainer || wrap.parentElement);
+    });
+
+    wrap.querySelectorAll('.trip-cb').forEach(cb => cb.addEventListener('change', (e) => {
+      if (e.target.checked) selectedTripIds.add(e.target.dataset.id);
+      else selectedTripIds.delete(e.target.dataset.id);
+      updateBulkBar(rootContainer || wrap.parentElement);
+    }));
+
+    // Trip detail links
+    wrap.querySelectorAll('.trip-link').forEach(el => {
+      const tr = el.closest('tr');
+      const id = tr.querySelector('.trip-cb')?.dataset.id;
+      if (id) el.addEventListener('click', () => navigateTo(`trip/${id}`));
+    });
+
+    // Driver links
+    wrap.querySelectorAll('.drv-link').forEach(el => {
+      el.addEventListener('click', () => navigateTo(`driver/${el.dataset.drv}`));
+    });
+
+    // Inline review buttons
+    wrap.querySelectorAll('.review-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const action = btn.dataset.action;
+        const id = btn.dataset.id;
+        let note;
+        if (action !== 'APPROVED') {
+          note = prompt(`Reason for ${action.toLowerCase()}:`);
+          if (note === null) return;
+        }
+        try {
+          await api(`/trips/${id}/review`, { method: 'POST', body: JSON.stringify({ action, note }) });
+          loadTripsTable(wrap, rootContainer);
+        } catch (err) {
+          alert('Review failed: ' + err.message);
+        }
+      });
+    });
+
+    // Pagination
+    const totalPages = Math.ceil(data.total / data.limit);
+    if (totalPages > 1) {
+      const pager = el('div', { className: 'flex items-center justify-between mt-4 text-sm text-gray-500' });
+      pager.innerHTML = `
+        <span>Page ${data.page} of ${totalPages} (${fmt(data.total)} trips)</span>
+        <div class="flex gap-2">
+          <button class="px-3 py-1 rounded border ${data.page <= 1 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-gray-100'}" ${data.page <= 1 ? 'disabled' : ''} data-dir="prev">Prev</button>
+          <button class="px-3 py-1 rounded border ${data.page >= totalPages ? 'opacity-40 cursor-not-allowed' : 'hover:bg-gray-100'}" ${data.page >= totalPages ? 'disabled' : ''} data-dir="next">Next</button>
+        </div>
+      `;
+      pager.querySelector('[data-dir="prev"]')?.addEventListener('click', () => { if (tripsPage > 1) { tripsPage--; loadTripsTable(wrap, rootContainer); } });
+      pager.querySelector('[data-dir="next"]')?.addEventListener('click', () => { if (tripsPage < totalPages) { tripsPage++; loadTripsTable(wrap, rootContainer); } });
+      wrap.appendChild(pager);
+    }
+  } catch (err) {
+    wrap.innerHTML = `<div class="text-red-600 bg-red-50 p-4 rounded-lg">${err.message}</div>`;
+  }
+}
+
+// ── Trip Detail ──────────────────────────────────────
+async function renderTripDetail(container, tripId) {
+  if (!tripId) { navigateTo('trips'); return; }
+  try {
+    const t = await api(`/trips/${tripId}`);
+    container.innerHTML = '';
+    container.classList.add('fade-in');
+
+    const back = el('button', { className: 'text-sm text-indigo-600 hover:text-indigo-800 mb-4 flex items-center gap-1', onClick: () => navigateTo('trips') });
+    back.innerHTML = '&larr; Back to Trips';
+    container.appendChild(back);
+
+    // Header
+    const hdr = el('div', { className: 'bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6' });
+    hdr.innerHTML = `
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 class="text-xl font-bold text-gray-900">${t.vehicleType || 'Trip'} — ${t.dateRequested || fmtDate(t.requestedAt)}</h2>
+          <div class="flex items-center gap-2 mt-1">
+            ${regionBadge(t.region)} ${reviewBadge(t.reviewStatus)}
+            <span class="text-xs text-gray-400">UUID: ${t.tripUuid}</span>
+          </div>
+        </div>
+        <div class="text-right">
+          <p class="text-3xl font-bold text-gray-900">${fmtCurrency(t.netEarnings, t.currency)}</p>
+          <p class="text-sm text-gray-500">Net Earnings</p>
+          <p class="text-lg font-semibold text-indigo-600 mt-1">${fmt(t.pointsAwarded)} points</p>
+        </div>
+      </div>
+    `;
+    container.appendChild(hdr);
+
+    // Review Actions
+    const actions = el('div', { className: 'flex gap-3 mb-6' });
+    const reviewBtns = [
+      { action: 'APPROVED', label: 'Approve', cls: 'bg-green-600 hover:bg-green-700 text-white' },
+      { action: 'FLAGGED', label: 'Flag', cls: 'bg-yellow-500 hover:bg-yellow-600 text-white' },
+      { action: 'REJECTED', label: 'Reject', cls: 'bg-red-600 hover:bg-red-700 text-white' },
+    ];
+    for (const rb of reviewBtns) {
+      if (t.reviewStatus === rb.action) continue;
+      const btn = el('button', {
+        className: `text-sm px-4 py-2 rounded-lg font-medium ${rb.cls}`,
+        onClick: async () => {
+          let note;
+          if (rb.action !== 'APPROVED') { note = prompt(`Reason for ${rb.action.toLowerCase()}:`); if (note === null) return; }
+          try {
+            await api(`/trips/${tripId}/review`, { method: 'POST', body: JSON.stringify({ action: rb.action, note }) });
+            renderTripDetail(container, tripId);
+          } catch (err) { alert('Review failed: ' + err.message); }
+        },
+      }, rb.label);
+      actions.appendChild(btn);
+    }
+    container.appendChild(actions);
+
+    // Map
+    if (t.mapImageUrl) {
+      const mapBox = el('div', { className: 'mb-6 rounded-xl overflow-hidden shadow-sm border border-gray-100' });
+      const img = el('img', { src: t.mapImageUrl, alt: 'Trip Route Map', className: 'w-full max-h-80 object-contain bg-gray-100' });
+      mapBox.appendChild(img);
+      container.appendChild(mapBox);
+    }
+
+    // Two-column details
+    const details = el('div', { className: 'grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6' });
+
+    // Left: Trip info
+    const left = el('div', { className: 'bg-white rounded-xl shadow-sm border border-gray-100 p-5' });
+    let leftHtml = `
+      <h3 class="text-sm font-semibold text-gray-700 mb-4">Trip Details</h3>
+      <dl class="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+        <dt class="text-gray-500">Vehicle Type</dt><dd class="font-medium">${t.vehicleType || '—'}</dd>
+        <dt class="text-gray-500">Date Requested</dt><dd>${t.dateRequested || '—'} ${t.timeRequested || ''}</dd>
+        <dt class="text-gray-500">Requested At</dt><dd>${fmtDateTime(t.requestedAt)}</dd>
+        <dt class="text-gray-500">Duration</dt><dd>${fmtDuration(t.durationSeconds)}</dd>
+        <dt class="text-gray-500">Distance</dt><dd>${fmtDistance(t.distanceMeters)}</dd>
+        <dt class="text-gray-500">Pool Type</dt><dd>${t.isPoolType ? 'Yes' : 'No'}</dd>
+        <dt class="text-gray-500">Surge</dt><dd>${t.isSurge ? 'Yes' : 'No'}</dd>
+        <dt class="text-gray-500">Status</dt><dd>${t.statusType || '—'}</dd>
+        <dt class="text-gray-500">Uber Points</dt><dd>${t.uberPoints ?? '—'}</dd>
+        <dt class="text-gray-500">Source</dt><dd>${t.source || '—'}</dd>
+      </dl>`;
+    if (t.tripNotes) {
+      leftHtml += `
+      <div class="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800">
+        <span class="font-medium">Note:</span> ${t.tripNotes}
+      </div>`;
+    }
+    leftHtml += `
+      <h4 class="text-sm font-semibold text-gray-700 mt-5 mb-3">Locations</h4>
+      <dl class="grid grid-cols-1 gap-y-2 text-sm">
+        <dt class="text-gray-500">Pickup</dt><dd>${t.pickupAddress || '—'}${t.pickupDistrict ? ` <span class="text-gray-400">(${t.pickupDistrict})</span>` : ''}</dd>
+        <dt class="text-gray-500">Dropoff</dt><dd>${t.dropoffAddress || '—'}${t.dropoffDistrict ? ` <span class="text-gray-400">(${t.dropoffDistrict})</span>` : ''}</dd>
+        ${t.pickupLat ? `<dt class="text-gray-500">Pickup Coords</dt><dd class="font-mono text-xs">${t.pickupLat}, ${t.pickupLng}</dd>` : ''}
+        ${t.dropoffLat ? `<dt class="text-gray-500">Dropoff Coords</dt><dd class="font-mono text-xs">${t.dropoffLat}, ${t.dropoffLng}</dd>` : ''}
+      </dl>
+    `;
+    left.innerHTML = leftHtml;
+    details.appendChild(left);
+
+    // Right: Fare breakdown (generic recursive tree from fareBreakdown JSON)
+    const right = el('div', { className: 'bg-white rounded-xl shadow-sm border border-gray-100 p-5' });
+    let fareHtml = `<h3 class="text-sm font-semibold text-gray-700 mb-4">Fare Breakdown (${t.currency})</h3>`;
+
+    if (t.fareBreakdown && t.fareBreakdown.length > 0) {
+      fareHtml += renderBreakdownTree(t.fareBreakdown, 0);
+    } else {
+      fareHtml += '<p class="text-sm text-gray-400">No breakdown data available</p>';
+    }
+
+    // Driver info
+    fareHtml += `
+      <h4 class="text-sm font-semibold text-gray-700 mt-5 mb-3">Driver</h4>
+      <dl class="text-sm">
+        <dt class="text-gray-500">Email</dt><dd><a class="text-indigo-600 hover:underline cursor-pointer" onclick="navigateTo('driver/${t.driver?.id}')">${t.driver?.email || '—'}</a></dd>
+        <dt class="text-gray-500 mt-1">Region</dt><dd>${t.driver?.region || '—'}</dd>
+      </dl>
+    `;
+
+    // Review info
+    if (t.reviewedAt) {
+      fareHtml += `
+        <h4 class="text-sm font-semibold text-gray-700 mt-5 mb-3">Review</h4>
+        <dl class="text-sm">
+          <dt class="text-gray-500">Reviewed At</dt><dd>${fmtDateTime(t.reviewedAt)}</dd>
+          ${t.reviewNote ? `<dt class="text-gray-500 mt-1">Note</dt><dd>${t.reviewNote}</dd>` : ''}
+          ${t.flagReason ? `<dt class="text-gray-500 mt-1">Flag Reason</dt><dd>${t.flagReason}</dd>` : ''}
+        </dl>
+      `;
+    }
+
+    // Points ledger
+    if (t.pointLedger?.length > 0) {
+      fareHtml += `<h4 class="text-sm font-semibold text-gray-700 mt-5 mb-3">Points Ledger</h4><table class="w-full text-sm"><thead><tr><th class="text-left py-1 text-gray-500">Type</th><th class="text-right py-1 text-gray-500">Amount</th><th class="text-left py-1 text-gray-500">Date</th></tr></thead><tbody>`;
+      for (const pl of t.pointLedger) {
+        fareHtml += `<tr><td class="py-1">${pl.type}</td><td class="py-1 text-right font-medium ${pl.amount >= 0 ? 'text-green-600' : 'text-red-600'}">${pl.amount >= 0 ? '+' : ''}${pl.amount}</td><td class="py-1 text-gray-500">${fmtDateTime(pl.createdAt)}</td></tr>`;
+      }
+      fareHtml += '</tbody></table>';
+    }
+
+    right.innerHTML = fareHtml;
+    details.appendChild(right);
+    container.appendChild(details);
+
+    // Metadata
+    const meta = el('div', { className: 'bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-6' });
+    meta.innerHTML = `
+      <h3 class="text-sm font-semibold text-gray-700 mb-3">Metadata</h3>
+      <dl class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+        <div><dt class="text-gray-500">Trip ID</dt><dd class="font-mono text-xs break-all">${t.id}</dd></div>
+        <div><dt class="text-gray-500">Trip UUID</dt><dd class="font-mono text-xs break-all">${t.tripUuid}</dd></div>
+        <div><dt class="text-gray-500">Payload Hash</dt><dd class="font-mono text-xs break-all">${t.payloadHash}</dd></div>
+        <div><dt class="text-gray-500">Processed At</dt><dd>${fmtDateTime(t.processedAt)}</dd></div>
+        <div><dt class="text-gray-500">Created At</dt><dd>${fmtDateTime(t.createdAt)}</dd></div>
+        <div><dt class="text-gray-500">Purge At</dt><dd>${fmtDateTime(t.rawPayloadPurgeAt)}</dd></div>
+      </dl>
+    `;
+    container.appendChild(meta);
+
+    // Raw JSON payload
+    if (t.rawPayload) {
+      const payloadSection = el('div', { className: 'mb-6' });
+      const toggle = el('button', {
+        className: 'text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2 hover:text-indigo-600',
+        onClick: () => {
+          const viewer = payloadSection.querySelector('.json-viewer');
+          const arrow = payloadSection.querySelector('.arrow');
+          if (viewer.classList.contains('hidden')) {
+            viewer.classList.remove('hidden');
+            arrow.textContent = '▼';
+          } else {
+            viewer.classList.add('hidden');
+            arrow.textContent = '▶';
+          }
+        },
+      });
+      toggle.innerHTML = '<span class="arrow">▶</span> Raw Uber API Response';
+      payloadSection.appendChild(toggle);
+
+      const viewer = el('div', { className: 'json-viewer hidden', html: syntaxHighlightJSON(t.rawPayload) });
+      payloadSection.appendChild(viewer);
+      container.appendChild(payloadSection);
+    }
+  } catch (err) {
+    container.innerHTML = `<div class="text-red-600 bg-red-50 p-4 rounded-lg">${err.message}</div>`;
+  }
+}
+
+// ── Driver Ledger ────────────────────────────────────
+async function renderDriverLedger(container, driverId) {
+  if (!driverId) { navigateTo('drivers'); return; }
+  try {
+    const [ledgerData, drvData] = await Promise.all([
+      api(`/drivers/${driverId}/ledger?limit=100`),
+      api(`/drivers/${driverId}`),
+    ]);
+    container.innerHTML = '';
+    container.classList.add('fade-in');
+
+    const back = el('button', { className: 'text-sm text-indigo-600 hover:text-indigo-800 mb-4 flex items-center gap-1', onClick: () => navigateTo(`driver/${driverId}`) });
+    back.innerHTML = '&larr; Back to Driver';
+    container.appendChild(back);
+
+    const header = el('div', { className: 'bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6' });
+    header.innerHTML = `
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-xl font-bold text-gray-900">Point Ledger</h2>
+          <p class="text-sm text-gray-500 mt-1">${drvData.driver.email} ${regionBadge(drvData.driver.region)}</p>
+        </div>
+        <div class="text-right">
+          <p class="text-3xl font-bold text-indigo-600">${fmt(drvData.driver.pointsBalance)}</p>
+          <p class="text-xs text-gray-400">Current Balance</p>
+        </div>
+      </div>
+    `;
+    container.appendChild(header);
+
+    const tableContainer = el('div', { className: 'bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden' });
+    const table = el('table', { className: 'min-w-full divide-y divide-gray-200' });
+    table.innerHTML = `
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+          <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
+          <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Balance</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trip</th>
+        </tr>
+      </thead>
+    `;
+    const tbody = el('tbody', { className: 'divide-y divide-gray-100' });
+    for (const e of ledgerData.entries) {
+      const tr = el('tr', { className: 'hover:bg-gray-50' });
+      const typeColors = { trip_earn: 'bg-green-100 text-green-700', redemption: 'bg-purple-100 text-purple-700', adjustment: 'bg-yellow-100 text-yellow-700', referral_bonus: 'bg-blue-100 text-blue-700', expiry: 'bg-red-100 text-red-700' };
+      tr.innerHTML = `
+        <td class="px-4 py-2.5 text-sm text-gray-500 whitespace-nowrap">${fmtDateTime(e.createdAt)}</td>
+        <td class="px-4 py-2.5 text-sm"><span class="badge ${typeColors[e.type] || 'bg-gray-100 text-gray-600'}">${e.type}</span></td>
+        <td class="px-4 py-2.5 text-sm text-right font-medium ${e.amount >= 0 ? 'text-green-600' : 'text-red-600'}">${e.amount >= 0 ? '+' : ''}${e.amount}</td>
+        <td class="px-4 py-2.5 text-sm text-right">${fmt(e.balance)}</td>
+        <td class="px-4 py-2.5 text-sm text-gray-600">${e.description || '—'}</td>
+        <td class="px-4 py-2.5 text-sm">${e.trip ? `<a class="text-indigo-600 hover:underline cursor-pointer" onclick="navigateTo('trip/${e.trip.id}')">${e.trip.vehicleType || 'Trip'} ${e.trip.dateRequested || ''}</a>` : '—'}</td>
+      `;
+      tbody.appendChild(tr);
+    }
+    if (ledgerData.entries.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">No point history</td></tr>';
+    }
+    table.appendChild(tbody);
+    tableContainer.appendChild(table);
+    container.appendChild(tableContainer);
+
+    const summary = el('div', { className: 'mt-4 text-sm text-gray-500' });
+    summary.textContent = `${fmt(ledgerData.total)} total entries`;
+    container.appendChild(summary);
+  } catch (err) {
+    container.innerHTML = `<div class="text-red-600 bg-red-50 p-4 rounded-lg">${err.message}</div>`;
+  }
+}
+
+// ── Redemptions ──────────────────────────────────────
+let redemptionsPage = 1;
+let redemptionsFilters = { region: '', status: '', driverId: '' };
+
+async function renderRedemptions(container) {
+  container.innerHTML = '';
+  container.classList.add('fade-in');
+
+  const header = el('div', { className: 'flex flex-wrap items-center justify-between gap-4 mb-6' });
+  header.appendChild(el('h2', { className: 'text-xl font-bold text-gray-900' }, 'Redemptions'));
+  const filters = el('div', { className: 'flex gap-3 flex-wrap' });
+  filters.innerHTML = `
+    <select id="red-region" class="text-sm border border-gray-300 rounded-lg px-3 py-2">
+      <option value="">All Regions</option><option value="HK">HK</option><option value="BR">BR</option>
+    </select>
+    <select id="red-status" class="text-sm border border-gray-300 rounded-lg px-3 py-2">
+      <option value="">All Statuses</option>
+      <option value="PENDING">Pending</option><option value="PROCESSING">Processing</option>
+      <option value="FULFILLED">Fulfilled</option><option value="FAILED">Failed</option>
+      <option value="CANCELLED">Cancelled</option>
+    </select>
+    <button id="red-apply" class="text-sm bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700">Apply</button>
+  `;
+  header.appendChild(filters);
+  container.appendChild(header);
+
+  const tableWrap = el('div', { id: 'red-table-wrap' });
+  container.appendChild(tableWrap);
+
+  container.querySelector('#red-apply').addEventListener('click', () => {
+    redemptionsFilters.region = container.querySelector('#red-region').value;
+    redemptionsFilters.status = container.querySelector('#red-status').value;
+    redemptionsPage = 1;
+    loadRedemptionsTable(tableWrap);
+  });
+
+  container.querySelector('#red-region').value = redemptionsFilters.region;
+  container.querySelector('#red-status').value = redemptionsFilters.status;
+  loadRedemptionsTable(tableWrap);
+}
+
+async function loadRedemptionsTable(wrap) {
+  wrap.innerHTML = '<div class="flex justify-center py-12"><div class="animate-spin h-6 w-6 border-4 border-indigo-500 border-t-transparent rounded-full"></div></div>';
+  try {
+    const params = new URLSearchParams({ page: redemptionsPage, limit: 20 });
+    if (redemptionsFilters.region) params.set('region', redemptionsFilters.region);
+    if (redemptionsFilters.status) params.set('status', redemptionsFilters.status);
+    if (redemptionsFilters.driverId) params.set('driverId', redemptionsFilters.driverId);
+
+    const data = await api(`/redemptions?${params}`);
+    wrap.innerHTML = '';
+
+    if (data.redemptions.length === 0) {
+      wrap.innerHTML = '<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center text-gray-400">No redemptions found</div>';
+      return;
+    }
+
+    const tableContainer = el('div', { className: 'bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto' });
+    const table = el('table', { className: 'min-w-full divide-y divide-gray-200' });
+    const statusColors = { PENDING: 'badge-pending', PROCESSING: 'bg-blue-100 text-blue-700', FULFILLED: 'badge-approved', FAILED: 'badge-rejected', CANCELLED: 'bg-gray-100 text-gray-500' };
+    const statusLabels = { PENDING: 'Awaiting Review', PROCESSING: 'Under Review', FULFILLED: 'Code Sent', FAILED: 'Failed', CANCELLED: 'Cancelled' };
+    table.innerHTML = `
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Driver</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Gift Card</th>
+          <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Points</th>
+          <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Value</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Gift Card Code</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+        </tr>
+      </thead>
+    `;
+    const tbody = el('tbody', { className: 'divide-y divide-gray-100' });
+    for (const r of data.redemptions) {
+      const tr = el('tr', { className: 'hover:bg-gray-50' });
+      tr.innerHTML = `
+        <td class="px-4 py-2.5 text-sm text-gray-500 whitespace-nowrap">${fmtDateTime(r.createdAt)}</td>
+        <td class="px-4 py-2.5 text-sm"><a class="text-indigo-600 hover:underline cursor-pointer" onclick="navigateTo('driver/${r.driver?.id}')">${r.driver?.email || '—'}</a></td>
+        <td class="px-4 py-2.5 text-sm font-medium">${r.giftCard?.name || '—'} <span class="text-gray-400">(${r.giftCard?.provider || ''})</span></td>
+        <td class="px-4 py-2.5 text-sm text-right font-medium">${fmt(r.pointsSpent)}</td>
+        <td class="px-4 py-2.5 text-sm text-right">${fmtCurrency(r.giftCard?.faceValue, r.giftCard?.currency)}</td>
+        <td class="px-4 py-2.5 text-sm"><span class="badge ${statusColors[r.status] || ''}">${statusLabels[r.status] || r.status}</span></td>
+        <td class="px-4 py-2.5 text-sm font-mono text-xs text-gray-500">${r.giftCardCode || '—'}</td>
+        <td class="px-4 py-2.5 text-sm">
+          <div class="flex gap-1">
+            ${r.status === 'PENDING' || r.status === 'PROCESSING' ? `<button class="fulfill-btn text-xs px-2 py-0.5 rounded bg-green-100 text-green-700 hover:bg-green-200" data-id="${r.id}" data-driver="${r.driver?.email || ''}" data-gc="${r.giftCard?.name || ''}">Send Code</button>` : ''}
+            ${r.status !== 'FULFILLED' && r.status !== 'CANCELLED' ? `<button class="cancel-btn text-xs px-2 py-0.5 rounded bg-red-100 text-red-700 hover:bg-red-200" data-id="${r.id}">Cancel</button>` : ''}
+          </div>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+    tableContainer.appendChild(table);
+    wrap.appendChild(tableContainer);
+
+    // Wire action buttons
+    wrap.querySelectorAll('.fulfill-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const driverEmail = btn.dataset.driver;
+        const gcName = btn.dataset.gc;
+        const code = prompt(`Send gift card code to ${driverEmail}\nGift Card: ${gcName}\n\nEnter the gift card code:`);
+        if (!code) return;
+        try {
+          await api(`/redemptions/${btn.dataset.id}/fulfill`, { method: 'POST', body: JSON.stringify({ giftCardCode: code }) });
+          loadRedemptionsTable(wrap);
+        } catch (err) { alert('Fulfill failed: ' + err.message); }
+      });
+    });
+    wrap.querySelectorAll('.cancel-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const reason = prompt('Reason for cancellation:');
+        if (!reason) return;
+        try {
+          await api(`/redemptions/${btn.dataset.id}/cancel`, { method: 'POST', body: JSON.stringify({ reason }) });
+          loadRedemptionsTable(wrap);
+        } catch (err) { alert('Cancel failed: ' + err.message); }
+      });
+    });
+
+    const totalPages = Math.ceil(data.total / data.limit);
+    if (totalPages > 1) {
+      const pager = el('div', { className: 'flex items-center justify-between mt-4 text-sm text-gray-500' });
+      pager.innerHTML = `
+        <span>Page ${data.page} of ${totalPages} (${fmt(data.total)} redemptions)</span>
+        <div class="flex gap-2">
+          <button class="px-3 py-1 rounded border ${data.page <= 1 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-gray-100'}" ${data.page <= 1 ? 'disabled' : ''} data-dir="prev">Prev</button>
+          <button class="px-3 py-1 rounded border ${data.page >= totalPages ? 'opacity-40 cursor-not-allowed' : 'hover:bg-gray-100'}" ${data.page >= totalPages ? 'disabled' : ''} data-dir="next">Next</button>
+        </div>
+      `;
+      pager.querySelector('[data-dir="prev"]')?.addEventListener('click', () => { if (redemptionsPage > 1) { redemptionsPage--; loadRedemptionsTable(wrap); } });
+      pager.querySelector('[data-dir="next"]')?.addEventListener('click', () => { if (redemptionsPage < totalPages) { redemptionsPage++; loadRedemptionsTable(wrap); } });
+      wrap.appendChild(pager);
+    }
+  } catch (err) {
+    wrap.innerHTML = `<div class="text-red-600 bg-red-50 p-4 rounded-lg">${err.message}</div>`;
+  }
+}
+
+// ── Gift Cards ───────────────────────────────────────
+async function renderGiftCards(container) {
+  try {
+    const data = await api('/gift-cards');
+    container.innerHTML = '';
+    container.classList.add('fade-in');
+
+    const header = el('div', { className: 'flex items-center justify-between mb-6' });
+    header.appendChild(el('h2', { className: 'text-xl font-bold text-gray-900' }, 'Gift Card Catalog'));
+    const addBtn = el('button', {
+      className: 'text-sm bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700',
+      onClick: () => showGiftCardForm(container),
+    }, '+ Add Gift Card');
+    header.appendChild(addBtn);
+    container.appendChild(header);
+
+    const formWrap = el('div', { id: 'gc-form-wrap' });
+    container.appendChild(formWrap);
+
+    if (!data.giftCards?.length) {
+      container.appendChild(el('div', { className: 'bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center text-gray-400' }, 'No gift cards configured. Add one to get started.'));
+      return;
+    }
+
+    const grid = el('div', { className: 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4', id: 'gc-grid' });
+    for (const gc of data.giftCards) {
+      const card = el('div', { className: `bg-white rounded-xl shadow-sm border ${gc.isActive ? 'border-gray-100' : 'border-red-200'} p-5 ${gc.isActive ? '' : 'opacity-60'}` });
+      card.innerHTML = `
+        <div class="flex items-start justify-between">
+          <div>
+            <h3 class="font-semibold text-gray-900">${gc.name}</h3>
+            <p class="text-sm text-gray-500">${gc.provider} ${regionBadge(gc.region)}</p>
+          </div>
+          <span class="badge ${gc.isActive ? 'badge-approved' : 'badge-rejected'}">${gc.isActive ? 'Active' : 'Inactive'}</span>
+        </div>
+        <div class="grid grid-cols-3 gap-3 mt-4 pt-3 border-t border-gray-100 text-center">
+          <div><p class="text-xs text-gray-500">Cost</p><p class="font-bold text-indigo-600">${fmt(gc.pointsCost)} pts</p></div>
+          <div><p class="text-xs text-gray-500">Value</p><p class="font-bold">${fmtCurrency(gc.faceValue, gc.currency)}</p></div>
+          <div><p class="text-xs text-gray-500">Stock</p><p class="font-bold ${gc.stockCount <= 0 ? 'text-red-600' : gc.stockCount < 10 ? 'text-yellow-600' : ''}">${gc.stockCount <= 0 ? 'Out of stock' : fmt(gc.stockCount)}</p></div>
+        </div>
+        <p class="text-xs text-gray-400 mt-2">${fmt(gc._count?.redemptions || 0)} total redemptions</p>
+        <div class="flex gap-2 mt-3 pt-3 border-t border-gray-100">
+          <button class="gc-edit text-xs px-3 py-1 rounded bg-indigo-100 text-indigo-700 hover:bg-indigo-200" data-id="${gc.id}">Edit</button>
+          <button class="gc-toggle text-xs px-3 py-1 rounded ${gc.isActive ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200' : 'bg-green-100 text-green-700 hover:bg-green-200'}" data-id="${gc.id}" data-active="${gc.isActive}">${gc.isActive ? 'Deactivate' : 'Activate'}</button>
+          <button class="gc-remove text-xs px-3 py-1 rounded bg-red-100 text-red-700 hover:bg-red-200 ml-auto" data-id="${gc.id}" data-name="${gc.name}">Remove</button>
+        </div>
+      `;
+      grid.appendChild(card);
+    }
+    container.appendChild(grid);
+
+    // Wire gift card action buttons
+    grid.querySelectorAll('.gc-edit').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const gc = data.giftCards.find(c => c.id === btn.dataset.id);
+        if (gc) showGiftCardForm(container, gc);
+      });
+    });
+    grid.querySelectorAll('.gc-toggle').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const gc = data.giftCards.find(c => c.id === btn.dataset.id);
+        if (!gc) return;
+        const newActive = btn.dataset.active !== 'true';
+        try {
+          await api('/gift-cards', {
+            method: 'POST',
+            body: JSON.stringify({
+              id: gc.id,
+              name: gc.name,
+              provider: gc.provider,
+              region: gc.region,
+              pointsCost: gc.pointsCost,
+              faceValue: Number(gc.faceValue),
+              currency: gc.currency,
+              stockCount: gc.stockCount,
+              isActive: newActive,
+            }),
+          });
+          renderGiftCards(container);
+        } catch (err) { alert('Failed: ' + err.message); }
+      });
+    });
+    grid.querySelectorAll('.gc-remove').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm(`Remove "${btn.dataset.name}"? If it has redemptions, it will be deactivated instead.`)) return;
+        try {
+          const result = await api(`/gift-cards/${btn.dataset.id}`, { method: 'DELETE' });
+          alert(result.message);
+          renderGiftCards(container);
+        } catch (err) { alert('Failed: ' + err.message); }
+      });
+    });
+  } catch (err) {
+    container.innerHTML = `<div class="text-red-600 bg-red-50 p-4 rounded-lg">${err.message}</div>`;
+  }
+}
+
+function showGiftCardForm(container, existing = null) {
+  const wrap = container.querySelector('#gc-form-wrap');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  const isEdit = !!existing;
+  const form = el('div', { className: 'bg-white rounded-xl shadow-sm border border-indigo-200 p-6 mb-6' });
+  form.innerHTML = `
+    <h3 class="text-sm font-semibold text-gray-700 mb-4">${isEdit ? 'Edit Gift Card' : 'Add Gift Card'}</h3>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div><label class="text-xs text-gray-500 block mb-1">Name</label><input id="gc-name" class="w-full text-sm border border-gray-300 rounded-lg px-2 py-1.5" placeholder="Starbucks HK$50" value="${existing?.name || ''}" /></div>
+      <div><label class="text-xs text-gray-500 block mb-1">Provider</label><input id="gc-provider" class="w-full text-sm border border-gray-300 rounded-lg px-2 py-1.5" placeholder="Starbucks" value="${existing?.provider || ''}" /></div>
+      <div><label class="text-xs text-gray-500 block mb-1">Region</label><select id="gc-region" class="w-full text-sm border border-gray-300 rounded-lg px-2 py-1.5"><option value="HK" ${existing?.region === 'HK' ? 'selected' : ''}>HK</option><option value="BR" ${existing?.region === 'BR' ? 'selected' : ''}>BR</option></select></div>
+      <div><label class="text-xs text-gray-500 block mb-1">Points Cost</label><input id="gc-cost" type="number" class="w-full text-sm border border-gray-300 rounded-lg px-2 py-1.5" placeholder="50" value="${existing?.pointsCost || ''}" /></div>
+      <div><label class="text-xs text-gray-500 block mb-1">Face Value</label><input id="gc-value" type="number" step="0.01" class="w-full text-sm border border-gray-300 rounded-lg px-2 py-1.5" placeholder="1.00" value="${existing?.faceValue || ''}" /></div>
+      <div><label class="text-xs text-gray-500 block mb-1">Currency</label><input id="gc-currency" class="w-full text-sm border border-gray-300 rounded-lg px-2 py-1.5" placeholder="HKD" value="${existing?.currency || ''}" /></div>
+      <div><label class="text-xs text-gray-500 block mb-1">Stock</label><input id="gc-stock" type="number" class="w-full text-sm border border-gray-300 rounded-lg px-2 py-1.5" placeholder="100" value="${existing?.stockCount ?? ''}" /></div>
+      <div class="flex items-end gap-2">
+        <button id="gc-save" class="text-sm bg-indigo-600 text-white px-4 py-1.5 rounded-lg hover:bg-indigo-700">${isEdit ? 'Update' : 'Save'}</button>
+        <button id="gc-cancel" class="text-sm border border-gray-300 px-3 py-1.5 rounded-lg hover:bg-gray-50">Cancel</button>
+      </div>
+    </div>
+  `;
+  wrap.appendChild(form);
+
+  wrap.querySelector('#gc-cancel').addEventListener('click', () => { wrap.innerHTML = ''; });
+  wrap.querySelector('#gc-save').addEventListener('click', async () => {
+    try {
+      const payload = {
+        name: wrap.querySelector('#gc-name').value,
+        provider: wrap.querySelector('#gc-provider').value,
+        region: wrap.querySelector('#gc-region').value,
+        pointsCost: parseInt(wrap.querySelector('#gc-cost').value),
+        faceValue: parseFloat(wrap.querySelector('#gc-value').value),
+        currency: wrap.querySelector('#gc-currency').value,
+        stockCount: parseInt(wrap.querySelector('#gc-stock').value) || 0,
+      };
+      if (isEdit) payload.id = existing.id;
+      await api('/gift-cards', { method: 'POST', body: JSON.stringify(payload) });
+      renderGiftCards(container);
+    } catch (err) {
+      alert('Failed to save: ' + err.message);
+    }
+  });
+}
+
+// ── Sessions ─────────────────────────────────────────
+async function renderSessions(container) {
+  try {
+    const data = await api('/sessions');
+    container.innerHTML = '';
+    container.classList.add('fade-in');
+
+    container.appendChild(el('h2', { className: 'text-xl font-bold text-gray-900 mb-6' }, 'Uber Session Health'));
+
+    if (!data.sessions?.length) {
+      container.appendChild(el('p', { className: 'text-gray-400' }, 'No active sessions'));
+      return;
+    }
+
+    const tableContainer = el('div', { className: 'bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden' });
+    const table = el('table', { className: 'min-w-full divide-y divide-gray-200' });
+    table.innerHTML = `
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Driver</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Region</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Source</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Started</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last Heartbeat</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Health</th>
+        </tr>
+      </thead>
+    `;
+    const tbody = el('tbody', { className: 'divide-y divide-gray-100' });
+    for (const s of data.sessions) {
+      const healthColor = { healthy: 'text-green-600 bg-green-50', stale: 'text-yellow-600 bg-yellow-50', dead: 'text-red-600 bg-red-50' }[s.health] || '';
+      const tr = el('tr', { className: 'hover:bg-gray-50' });
+      tr.innerHTML = `
+        <td class="px-4 py-3 text-sm"><a class="text-indigo-600 hover:underline cursor-pointer" onclick="navigateTo('driver/${s.driver?.id}')">${s.driver?.email || '—'}</a></td>
+        <td class="px-4 py-3 text-sm">${regionBadge(s.driver?.region)}</td>
+        <td class="px-4 py-3 text-sm">${s.source}</td>
+        <td class="px-4 py-3 text-sm text-gray-500">${fmtDateTime(s.sessionStarted)}</td>
+        <td class="px-4 py-3 text-sm text-gray-500">${fmtDateTime(s.lastHeartbeat)} <span class="text-xs text-gray-400">(${s.minutesSinceHeartbeat}m ago)</span></td>
+        <td class="px-4 py-3 text-sm"><span class="badge ${healthColor}">${s.health}</span></td>
+      `;
+      tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+    tableContainer.appendChild(table);
+    container.appendChild(tableContainer);
+  } catch (err) {
+    container.innerHTML = `<div class="text-red-600 bg-red-50 p-4 rounded-lg">${err.message}</div>`;
+  }
+}
+
+// ── Init ─────────────────────────────────────────────
+if (token && adminInfo) {
+  showDashboard();
+} else {
+  $('#login-screen').classList.remove('hidden');
+  $('#dashboard').classList.add('hidden');
+}
+</script>
+</body>
+</html>

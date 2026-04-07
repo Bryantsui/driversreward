@@ -1,0 +1,39 @@
+node_modules/
+dist/
+.env
+.env.local
+.env.*.local
+*.log
+*.pid
+coverage/
+.nyc_output/
+
+# Backend
+backend/node_modules/
+backend/dist/
+backend/.env
+
+# Android
+android-app/.gradle/
+android-app/build/
+android-app/app/build/
+android-app/local.properties
+*.apk
+*.aab
+
+# Chrome Extension build
+chrome-extension/dist/
+chrome-extension/node_modules/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Docker
+*.env.docker
+
+# Prisma
+backend/prisma/*.db

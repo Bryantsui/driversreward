@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DriversBonus</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      width: 360px;
+      min-height: 480px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f5f5;
+      color: #1a1a1a;
+    }
+    .header {
+      background: linear-gradient(135deg, #000000 0%, #1a1a2e 100%);
+      color: white;
+      padding: 20px;
+      text-align: center;
+    }
+    .header h1 { font-size: 18px; font-weight: 600; }
+    .header .subtitle { font-size: 12px; opacity: 0.8; margin-top: 4px; }
+
+    .points-card {
+      background: white;
+      margin: 16px;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      text-align: center;
+    }
+    .points-value {
+      font-size: 36px;
+      font-weight: 700;
+      color: #276749;
+    }
+    .points-label { font-size: 12px; color: #666; margin-top: 4px; }
+
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin: 0 16px;
+    }
+    .stat-card {
+      background: white;
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+    .stat-value { font-size: 20px; font-weight: 600; }
+    .stat-label { font-size: 11px; color: #888; margin-top: 2px; }
+
+    /* Progress / Status section */
+    .progress-section {
+      margin: 16px;
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .progress-header {
+      font-size: 13px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 8px;
+    }
+    .step-list {
+      list-style: none;
+    }
+    .step-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 6px 0;
+      font-size: 12px;
+      color: #888;
+    }
+    .step-item.active { color: #1a1a1a; font-weight: 500; }
+    .step-item.done { color: #16a34a; }
+    .step-item.error { color: #dc2626; }
+    .step-icon {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      flex-shrink: 0;
+      background: #e5e7eb;
+      color: #9ca3af;
+    }
+    .step-item.active .step-icon { background: #000; color: #fff; }
+    .step-item.done .step-icon { background: #16a34a; color: #fff; }
+    .step-item.error .step-icon { background: #dc2626; color: #fff; }
+
+    .progress-bar-wrap {
+      margin-top: 8px;
+      background: #e5e7eb;
+      height: 6px;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: #000;
+      border-radius: 3px;
+      transition: width 0.3s ease;
+    }
+
+    .progress-detail {
+      font-size: 11px;
+      color: #666;
+      margin-top: 6px;
+    }
+
+    .result-card {
+      margin: 16px;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+    }
+    .result-card.has-errors {
+      background: #fef2f2;
+      border-color: #fecaca;
+    }
+    .result-stat {
+      display: inline-block;
+      margin: 4px 8px;
+      font-size: 12px;
+    }
+    .result-stat strong { font-size: 18px; display: block; }
+
+    .sync-status {
+      margin: 16px;
+      padding: 12px;
+      background: white;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+    .sync-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #4CAF50;
+      flex-shrink: 0;
+    }
+    .sync-dot.pending { background: #FF9800; }
+    .sync-dot.error { background: #F44336; }
+    .sync-dot.checking { background: #2196F3; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+    .actions {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      text-align: center;
+      text-decoration: none;
+    }
+    .btn-primary { background: #000; color: white; }
+    .btn-secondary { background: white; color: #1a1a1a; border: 1px solid #ddd; }
+
+    .auth-container { padding: 20px; }
+    .auth-container input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+    .auth-container select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 14px;
+      margin-bottom: 12px;
+      background: white;
+    }
+    .error-msg { color: #F44336; font-size: 12px; margin-bottom: 8px; }
+
+    .instructions {
+      margin: 0 16px 16px;
+      padding: 12px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      font-size: 12px;
+      color: #1e40af;
+      line-height: 1.5;
+    }
+
+    .gc-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .gc-item:last-child { border-bottom: none; }
+    .gc-name { font-size: 13px; font-weight: 500; }
+    .gc-detail { font-size: 11px; color: #888; }
+    .gc-cost { font-size: 12px; font-weight: 600; color: #276749; }
+    .gc-btn {
+      padding: 4px 10px;
+      font-size: 11px;
+      background: #000;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .gc-btn:disabled { background: #ccc; cursor: not-allowed; }
+    .rd-item {
+      padding: 6px 0;
+      border-bottom: 1px solid #f0f0f0;
+      font-size: 12px;
+    }
+    .rd-item:last-child { border-bottom: none; }
+    .rd-status {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 8px;
+      font-size: 10px;
+      font-weight: 600;
+    }
+    .rd-pending { background: #fef3c7; color: #92400e; }
+    .rd-processing { background: #dbeafe; color: #1e40af; }
+    .rd-fulfilled { background: #d1fae5; color: #065f46; }
+    .rd-cancelled { background: #fee2e2; color: #991b1b; }
+    .rd-failed { background: #fee2e2; color: #991b1b; }
+    .gc-code {
+      display: block;
+      margin-top: 4px;
+      padding: 6px 8px;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 13px;
+      font-weight: 600;
+      color: #065f46;
+      letter-spacing: 1px;
+      word-break: break-all;
+    }
+
+    #app-logged-in, #app-logged-out { display: none; }
+    body.logged-in #app-logged-in { display: block; }
+    body.logged-out #app-logged-out { display: block; }
+
+    .spinner {
+      display: inline-block;
+      width: 12px; height: 12px;
+      border: 2px solid #ccc;
+      border-top-color: #000;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body class="logged-out">
+
+  <!-- Logged Out View -->
+  <div id="app-logged-out">
+    <div class="header">
+      <h1>DriversBonus</h1>
+      <div class="subtitle">Earn points for sharing trip data</div>
+    </div>
+    <div class="instructions">
+      <strong>How it works:</strong><br>
+      1. Create an account or sign in below<br>
+      2. Click "Open Uber Driver Portal" to log into Uber<br>
+      3. We'll automatically collect your trip data<br>
+      4. Earn points for each trip and redeem gift cards!
+    </div>
+    <div class="auth-container">
+      <div id="error-message" class="error-msg" style="display:none"></div>
+      <div id="success-message" class="error-msg" style="display:none;color:#16a34a;background:#f0fdf4;border:1px solid #bbf7d0;padding:8px;border-radius:8px;margin-bottom:8px"></div>
+
+      <!-- Login form -->
+      <div id="login-form-wrap">
+        <input type="email" id="login-email" placeholder="Email address" />
+        <input type="password" id="login-password" placeholder="Password" />
+        <button class="btn btn-primary" id="btn-login">Sign In</button>
+        <div style="text-align:center;margin:8px 0">
+          <a href="#" id="btn-show-forgot" style="font-size:12px;color:#6366f1;text-decoration:none">Forgot password?</a>
+        </div>
+        <div style="text-align:center;margin:8px 0;color:#888;font-size:12px">or</div>
+      </div>
+
+      <!-- Forgot password: Step 1 — enter email -->
+      <div id="forgot-form-wrap" style="display:none">
+        <p style="font-size:13px;color:#333;margin-bottom:12px;font-weight:500">Reset your password</p>
+        <p style="font-size:12px;color:#888;margin-bottom:12px">Enter your email and we'll send a 6-digit reset code.</p>
+        <input type="email" id="forgot-email" placeholder="Email address" />
+        <button class="btn btn-primary" id="btn-send-code">Send Reset Code</button>
+        <button class="btn btn-secondary" id="btn-forgot-back" style="margin-top:6px">Back to Sign In</button>
+      </div>
+
+      <!-- Forgot password: Step 2 — enter code + new password -->
+      <div id="reset-form-wrap" style="display:none">
+        <p style="font-size:13px;color:#333;margin-bottom:12px;font-weight:500">Enter your reset code</p>
+        <p style="font-size:12px;color:#888;margin-bottom:12px">Check your email for the 6-digit code.</p>
+        <input type="text" id="reset-code" placeholder="6-digit code" maxlength="6" style="text-align:center;font-size:20px;letter-spacing:6px;font-weight:700" />
+        <input type="password" id="reset-new-password" placeholder="New password (min 8 chars)" />
+        <input type="password" id="reset-confirm-password" placeholder="Confirm new password" />
+        <button class="btn btn-primary" id="btn-reset-password">Reset Password</button>
+        <button class="btn btn-secondary" id="btn-reset-back" style="margin-top:6px">Back to Sign In</button>
+      </div>
+
+      <!-- Register form (hidden by default) -->
+      <div id="register-form-wrap" style="display:none">
+        <input type="text" id="reg-name" placeholder="Full name" />
+        <input type="email" id="reg-email" placeholder="Email address" />
+        <input type="password" id="reg-password" placeholder="Password (min 8 chars)" />
+        <select id="reg-region">
+          <option value="HK">Hong Kong</option>
+          <option value="BR">Brazil</option>
+        </select>
+        <input type="text" id="reg-referral" placeholder="Referral code (optional)" />
+        <button class="btn btn-primary" id="btn-register">Register</button>
+        <button class="btn btn-secondary" id="btn-register-back" style="margin-top:6px">Back to Sign In</button>
+      </div>
+      <button class="btn btn-secondary" id="btn-show-register">Create Account</button>
+    </div>
+  </div>
+
+  <!-- Logged In View -->
+  <div id="app-logged-in">
+    <div class="header">
+      <h1>DriversBonus</h1>
+      <div class="subtitle" id="driver-email"></div>
+    </div>
+    <div class="points-card">
+      <div class="points-value" id="points-balance">—</div>
+      <div class="points-label">Reward Points</div>
+    </div>
+    <div class="stats">
+      <div class="stat-card">
+        <div class="stat-value" id="pending-count">0</div>
+        <div class="stat-label">Pending Sync</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="lifetime-points">0</div>
+        <div class="stat-label">Lifetime Points</div>
+      </div>
+    </div>
+
+    <!-- Uber Login + Fetch Progress -->
+    <div class="progress-section" id="progress-section">
+      <div class="progress-header">Data Collection Status</div>
+      <ul class="step-list" id="step-list">
+        <li class="step-item" id="step-uber-login">
+          <span class="step-icon">1</span>
+          <span>Log in to Uber Driver Portal</span>
+        </li>
+        <li class="step-item" id="step-fetch-history">
+          <span class="step-icon">2</span>
+          <span>Scan trip history</span>
+        </li>
+        <li class="step-item" id="step-fetch-details">
+          <span class="step-icon">3</span>
+          <span>Fetch trip details</span>
+        </li>
+        <li class="step-item" id="step-sync">
+          <span class="step-icon">4</span>
+          <span>Sync to server & earn points</span>
+        </li>
+      </ul>
+      <div class="progress-bar-wrap" id="progress-bar-wrap" style="display:none">
+        <div class="progress-bar-fill" id="progress-bar-fill" style="width:0%"></div>
+      </div>
+      <div class="progress-detail" id="progress-detail"></div>
+    </div>
+
+    <!-- Sync Result (shown after completion) -->
+    <div id="sync-result" style="display:none"></div>
+
+    <div class="sync-status" id="uber-session-bar">
+      <div class="sync-dot" id="uber-session-dot"></div>
+      <span id="uber-session-text">Checking Uber session...</span>
+    </div>
+
+    <!-- Rewards Section -->
+    <div id="rewards-section" style="display:none">
+      <div style="padding:12px 16px 0">
+        <button class="btn btn-secondary" id="btn-back-main" style="padding:6px 14px;font-size:12px;width:auto;display:inline-flex;align-items:center;gap:4px">
+          <span style="font-size:16px">&larr;</span> Back to Dashboard
+        </button>
+      </div>
+      <div class="progress-section" style="margin-top:8px">
+        <div class="progress-header">Available Gift Cards</div>
+        <div id="gift-cards-list" style="margin-top:8px"></div>
+      </div>
+      <div id="my-redemptions" style="display:none">
+        <div class="progress-section">
+          <div class="progress-header">My Redemption History</div>
+          <div id="redemptions-list" style="margin-top:8px"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="actions" id="main-actions">
+      <button class="btn btn-primary" id="btn-open-uber">
+        Open Uber Driver Portal
+      </button>
+      <button class="btn btn-secondary" id="btn-rewards">
+        Redeem Gift Cards
+      </button>
+      <button class="btn btn-secondary" id="btn-logout" style="color:#F44336">
+        Sign Out
+      </button>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

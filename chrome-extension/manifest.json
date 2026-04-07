@@ -1,0 +1,52 @@
+{
+  "manifest_version": 3,
+  "name": "DriversBonus",
+  "description": "Earn reward points by sharing your driver trip data on driversbonus.com. Redeem for gift cards.",
+  "version": "1.0.0",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "cookies",
+    "notifications",
+    "alarms",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://drivers.uber.com/*",
+    "https://*.uber.com/*",
+    "https://api.driversbonus.com/*"
+  ],
+  "background": {
+    "service_worker": "src/background/service-worker.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://drivers.uber.com/*"],
+      "js": ["src/content/interceptor-main.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://drivers.uber.com/*"],
+      "js": ["src/content/interceptor.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "action": {
+    "default_popup": "src/popup/popup.html",
+    "default_icon": {
+      "16": "public/icons/icon-16.png",
+      "48": "public/icons/icon-48.png",
+      "128": "public/icons/icon-128.png"
+    }
+  },
+  "icons": {
+    "16": "public/icons/icon-16.png",
+    "48": "public/icons/icon-48.png",
+    "128": "public/icons/icon-128.png"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
+}

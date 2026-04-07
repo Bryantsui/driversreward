@@ -1,0 +1,244 @@
+import { Router, type Request, type Response } from 'express';
+import { z } from 'zod';
+import { authenticate } from '../middleware/auth.js';
+import { submitBatchTripsSchema, submitActivityFeedSchema } from '../validators/ingestion.js';
+import { submitTrip, submitActivityFeed } from '../../services/ingestion-service.js';
+import { parseUberTripResponse } from '../../services/uber-parser.js';
+import { prisma } from '../../config/database.js';
+import { logger } from '../../config/logger.js';
+import type { Region } from '@prisma/client';
+
+const router = Router();
+
+router.use(authenticate);
+
+// --- Existing endpoint: pre-parsed trips ---
+router.post('/trips', async (req: Request, res: Response, next) => {
+  try {
+    const input = submitBatchTripsSchema.parse(req.body);
+    const driverId = req.driver!.sub;
+    const region = req.driver!.region as Region;
+
+    const results = [];
+    for (const trip of input.trips) {
+      const result = await submitTrip(driverId, region, trip);
+      results.push(result);
+    }
+
+    const totalPoints = results.reduce((sum, r) => sum + (r.isDuplicate ? 0 : r.pointsAwarded), 0);
+    const newTrips = results.filter((r) => !r.isDuplicate).length;
+    const duplicates = results.filter((r) => r.isDuplicate).length;
+
+    res.status(201).json({
+      processed: results.length,
+      newTrips,
+      duplicates,
+      totalPointsAwarded: totalPoints,
+      trips: results,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// --- New endpoint: raw Uber responses (server-side parsing) ---
+const rawTripsSchema = z.object({
+  trips: z.array(z.object({
+    rawBody: z.string().min(10).max(500_000),
+    tripUuid: z.string().max(100).optional(),
+    url: z.string().max(500).optional(),
+  })).min(1).max(100),
+  source: z.enum(['chrome_extension', 'android_app']),
+});
+
+router.post('/raw-trips', async (req: Request, res: Response, next) => {
+  try {
+    const input = rawTripsSchema.parse(req.body);
+    const driverId = req.driver!.sub;
+    const region = req.driver!.region as Region;
+
+    const results: Array<{
+      tripUuid: string;
+      status: 'created' | 'duplicate' | 'parse_error' | 'validation_error';
+      pointsAwarded: number;
+      error?: string;
+    }> = [];
+
+    for (const { rawBody, tripUuid: inputUuid } of input.trips) {
+      const parsed = parseUberTripResponse(rawBody, inputUuid || '');
+
+      if (!parsed) {
+        results.push({ tripUuid: '', status: 'parse_error', pointsAwarded: 0, error: 'Could not parse Uber response' });
+        continue;
+      }
+
+      // Check for same-driver duplicate
+      const existing = await prisma.trip.findUnique({
+        where: { driverId_tripUuid: { driverId, tripUuid: parsed.tripUuid } },
+        select: { id: true, pointsAwarded: true },
+      });
+
+      if (existing) {
+        results.push({ tripUuid: parsed.tripUuid, status: 'duplicate', pointsAwarded: existing.pointsAwarded });
+        continue;
+      }
+
+      // Cross-driver deduplication: same tripUuid submitted by a different account = fraud signal
+      const crossDriverDupe = await prisma.trip.findFirst({
+        where: { tripUuid: parsed.tripUuid, driverId: { not: driverId } },
+        select: { id: true, driverId: true },
+      });
+
+      if (crossDriverDupe) {
+        logger.warn({ tripUuid: parsed.tripUuid, driverId, otherDriverId: crossDriverDupe.driverId }, 'Cross-driver duplicate detected — possible fraud');
+        results.push({ tripUuid: parsed.tripUuid, status: 'validation_error', pointsAwarded: 0, error: 'This trip has already been submitted by another account' });
+        continue;
+      }
+
+      // Validate timestamp
+      const requestedDate = new Date(parsed.requestedAt * 1000);
+      const now = new Date();
+      const threeYearsAgo = new Date(now.getFullYear() - 3, now.getMonth(), now.getDate());
+      if (requestedDate > now || requestedDate < threeYearsAgo) {
+        results.push({ tripUuid: parsed.tripUuid, status: 'validation_error', pointsAwarded: 0, error: 'Timestamp out of range' });
+        continue;
+      }
+
+      try {
+        // Determine if trip qualifies for points:
+        // 1. Must be a "COMPLETED" trip (not cancelled)
+        // 2. Must have happened within the last 30 days
+        // 3. Must parse with sufficient confidence
+        const isCancelled = parsed.statusType && parsed.statusType.toUpperCase().includes('CANCEL');
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        const isWithin30Days = requestedDate >= thirtyDaysAgo;
+        const isQualified = !isCancelled && isWithin30Days && parsed.parseConfidence !== 'low';
+
+        const pointsAwarded = isQualified ? 1 : 0;
+
+        // Auto-flag trips with parse integrity issues
+        const autoFlagged = parsed.parseConfidence === 'low';
+        const autoFlagReason = autoFlagged
+          ? `Auto-flagged: low parse confidence. Warnings: ${parsed.parseWarnings.join('; ')}`
+          : (parsed.parseConfidence === 'medium'
+            ? `Parse warnings: ${parsed.parseWarnings.join('; ')}`
+            : undefined);
+
+        await prisma.$transaction(async (tx) => {
+          const trip = await tx.trip.create({
+            data: {
+              driverId,
+              tripUuid: parsed.tripUuid,
+              region,
+              vehicleType: parsed.vehicleType,
+              requestedAt: requestedDate,
+              durationSeconds: parsed.durationSeconds,
+              distanceMeters: parsed.distanceMeters,
+              currency: parsed.currency,
+              pickupAddress: parsed.pickupAddress,
+              dropoffAddress: parsed.dropoffAddress,
+              pickupDistrict: parsed.pickupDistrict,
+              dropoffDistrict: parsed.dropoffDistrict,
+              pickupLat: parsed.pickupLat,
+              pickupLng: parsed.pickupLng,
+              dropoffLat: parsed.dropoffLat,
+              dropoffLng: parsed.dropoffLng,
+              mapImageUrl: parsed.mapImageUrl,
+              fareAmount: parsed.fareAmount,
+              serviceFee: parsed.serviceFee,
+              serviceFeePercent: parsed.serviceFeePercent,
+              bookingFee: parsed.bookingFee,
+              bookingFeePayment: parsed.bookingFeePayment,
+              otherEarnings: parsed.otherEarnings,
+              tolls: parsed.tolls,
+              tips: parsed.tips,
+              surcharges: parsed.surcharges,
+              promotions: parsed.promotions,
+              netEarnings: parsed.netEarnings,
+              fareBreakdown: parsed.fareBreakdown as any,
+              isPoolType: parsed.isPoolType,
+              isSurge: parsed.isSurge,
+              uberPoints: parsed.uberPoints,
+              dateRequested: parsed.dateRequested,
+              timeRequested: parsed.timeRequested,
+              tripNotes: parsed.tripNotes,
+              statusType: parsed.statusType,
+              payloadHash: parsed.rawPayloadHash,
+              rawPayload: JSON.parse(rawBody),
+              rawPayloadPurgeAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+              source: input.source,
+              pointsAwarded,
+              processedAt: new Date(),
+              // Auto-flag if parse confidence is low
+              reviewStatus: autoFlagged ? 'FLAGGED' : 'PENDING_REVIEW',
+              flagReason: autoFlagReason,
+            },
+          });
+
+          if (pointsAwarded > 0) {
+            const driver = await tx.driver.findUniqueOrThrow({
+              where: { id: driverId },
+              select: { pointsBalance: true },
+            });
+
+            await tx.pointLedger.create({
+              data: {
+                driverId,
+                tripId: trip.id,
+                amount: pointsAwarded,
+                balance: driver.pointsBalance + pointsAwarded,
+                type: 'trip_earn',
+                description: `Trip ${parsed.tripUuid.slice(0, 8)}... — ${parsed.vehicleType ?? 'ride'}`,
+                expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+              },
+            });
+
+            await tx.driver.update({
+              where: { id: driverId },
+              data: {
+                pointsBalance: { increment: pointsAwarded },
+                lifetimePoints: { increment: pointsAwarded },
+                lastActiveAt: new Date(),
+              },
+            });
+          }
+        });
+
+        results.push({ tripUuid: parsed.tripUuid, status: 'created', pointsAwarded });
+        logger.info({ driverId, tripUuid: parsed.tripUuid, pointsAwarded }, 'Raw trip ingested');
+      } catch (err: any) {
+        logger.error({ err, tripUuid: parsed.tripUuid }, 'Failed to store trip');
+        results.push({ tripUuid: parsed.tripUuid, status: 'validation_error', pointsAwarded: 0, error: err.message });
+      }
+    }
+
+    const created = results.filter((r) => r.status === 'created');
+    const totalPoints = created.reduce((s, r) => s + r.pointsAwarded, 0);
+
+    res.status(201).json({
+      processed: results.length,
+      created: created.length,
+      duplicates: results.filter((r) => r.status === 'duplicate').length,
+      errors: results.filter((r) => r.status === 'parse_error' || r.status === 'validation_error').length,
+      totalPointsAwarded: totalPoints,
+      results,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/activity-feed', async (req: Request, res: Response, next) => {
+  try {
+    const input = submitActivityFeedSchema.parse(req.body);
+    const driverId = req.driver!.sub;
+    const region = req.driver!.region as Region;
+
+    const result = await submitActivityFeed(driverId, region, input);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+export { router as ingestionRouter };
