@@ -1,4 +1,4 @@
-# Threat Model: DriversBonus (driversbonus.com)
+# Threat Model: DriversReward (driversreward.com)
 
 **Date**: 2026-04-07 | **Version**: 1.0 | **Author**: Security Engineer Agent
 

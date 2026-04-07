@@ -17,7 +17,7 @@
   function post(type, body, url) {
     window.postMessage(
       {
-        source: 'driversbonus-interceptor',
+        source: 'driversreward-interceptor',
         type,
         body: typeof body === 'string' ? body : JSON.stringify(body),
         url: url || '',
@@ -120,7 +120,7 @@
       const h = extractHeaders(input, init);
       if (hasUsableHeaders(h)) {
         capturedHeaders = h;
-        console.log('[DriversBonus] Captured headers from fetch');
+        console.log('[DriversReward] Captured headers from fetch');
         if (loginCheckInterval) { clearInterval(loginCheckInterval); loginCheckInterval = null; }
         post('UBER_LOGIN_STATE', JSON.stringify({ state: 'logged_in', message: 'Uber session active' }), '');
         triggerAutoFetch();
@@ -162,7 +162,7 @@
   XMLHttpRequest.prototype.send = function (...args) {
     if (!hasUsableHeaders(capturedHeaders) && hasUsableHeaders(this._rwHeaders)) {
       capturedHeaders = { ...this._rwHeaders };
-      console.log('[DriversBonus] Captured headers from XHR');
+      console.log('[DriversReward] Captured headers from XHR');
       if (loginCheckInterval) { clearInterval(loginCheckInterval); loginCheckInterval = null; }
       post('UBER_LOGIN_STATE', JSON.stringify({ state: 'logged_in', message: 'Uber session active' }), '');
       triggerAutoFetch();
@@ -243,7 +243,7 @@
   async function autoFetchTrips() {
     if (!capturedHeaders) return;
 
-    console.log(`[DriversBonus] Auto-fetching last ${WEEKS_TO_FETCH} weeks of trips...`);
+    console.log(`[DriversReward] Auto-fetching last ${WEEKS_TO_FETCH} weeks of trips...`);
     postProgress('fetching_history', { message: 'Scanning trip history...', week: 0, totalWeeks: WEEKS_TO_FETCH });
 
     const allTrips = [];
@@ -263,7 +263,7 @@
         totalWeeks: WEEKS_TO_FETCH,
       });
 
-      console.log(`[DriversBonus] Week ${w + 1}: ${fmtDate(startDate)} → ${fmtDate(endPlusOne)}`);
+      console.log(`[DriversReward] Week ${w + 1}: ${fmtDate(startDate)} → ${fmtDate(endPlusOne)}`);
       await fetchFeedWeek(startDate, endPlusOne, allTrips);
       await sleep(DELAY_BETWEEN_WEEKS_MS);
     }
@@ -276,7 +276,7 @@
       return true;
     });
 
-    console.log(`[DriversBonus] Found ${uniqueTrips.length} unique trips — fetching details...`);
+    console.log(`[DriversReward] Found ${uniqueTrips.length} unique trips — fetching details...`);
     postProgress('fetching_details', {
       message: `Found ${uniqueTrips.length} trips. Fetching details...`,
       fetched: 0,
@@ -308,7 +308,7 @@
       });
     }
 
-    console.log(`[DriversBonus] Complete: ${fetched}/${uniqueTrips.length} trips captured`);
+    console.log(`[DriversReward] Complete: ${fetched}/${uniqueTrips.length} trips captured`);
     postProgress('submitting', { message: 'Sending trip data to server...', fetched, total: uniqueTrips.length });
     // Small delay to ensure all UBER_TRIP_CAPTURED messages are delivered before signaling completion
     await sleep(2000);

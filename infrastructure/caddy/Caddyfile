@@ -1,12 +1,12 @@
-# Caddyfile for DriversBonus Production
+# Caddyfile for DriversReward Production
 
 # 1. API Subdomain (Reverse Proxy to Node.js backend)
-api.driversbonus.com {
+api.driversreward.com {
     reverse_proxy api:3000
 }
 
 # 2. Main Domain (Static Landing Page & Privacy Policy)
-driversbonus.com, www.driversbonus.com {
+driversreward.com, www.driversreward.com {
     root * /usr/share/caddy
     file_server
 }

@@ -1,6 +1,6 @@
-# DriversBonus
+# DriversReward
 
-**[driversbonus.com](https://driversbonus.com)**
+**[driversreward.com](https://driversreward.com)**
 
 A reward programme for ride-hailing drivers in **Hong Kong** and **Brazil** to earn points by sharing trip earnings data, redeemable for gift cards.
 
@@ -51,7 +51,7 @@ A reward programme for ride-hailing drivers in **Hong Kong** and **Brazil** to e
 
 ```bash
 # Clone and start infrastructure
-cd driversbonus
+cd driversreward
 docker compose up -d
 
 # Run database migrations

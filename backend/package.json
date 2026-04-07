@@ -1,7 +1,7 @@
 {
-  "name": "driversbonus-api",
+  "name": "driversreward-api",
   "version": "1.0.0",
-  "description": "Backend API for DriversBonus (driversbonus.com) — HK & Brazil",
+  "description": "Backend API for DriversReward (driversreward.com) — HK & Brazil",
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",

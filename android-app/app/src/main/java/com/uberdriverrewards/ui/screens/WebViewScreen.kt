@@ -69,12 +69,12 @@ fun WebViewScreen(
                         userAgentString = userAgentString.replace(
                             Regex("wv|Version/\\S+"),
                             ""
-                        ) + " DriversBonus/1.0"
+                        ) + " DriversReward/1.0"
                     }
 
                     addJavascriptInterface(
                         UberDataBridge(viewModel),
-                        "DriversBonusBridge"
+                        "DriversRewardBridge"
                     )
 
                     webViewClient = object : WebViewClient() {
@@ -133,11 +133,11 @@ private const val INTERCEPTOR_SCRIPT = """
 
     if (url.includes(TRIP_URL)) {
       response.clone().text().then(function(body) {
-        try { DriversBonusBridge.onTripCaptured(body); } catch(e) {}
+        try { DriversRewardBridge.onTripCaptured(body); } catch(e) {}
       });
     } else if (url.includes(FEED_URL)) {
       response.clone().text().then(function(body) {
-        try { DriversBonusBridge.onActivityFeedCaptured(body); } catch(e) {}
+        try { DriversRewardBridge.onActivityFeedCaptured(body); } catch(e) {}
       });
     }
 
@@ -156,9 +156,9 @@ private const val INTERCEPTOR_SCRIPT = """
     this.addEventListener('load', function() {
       var url = this._udrUrl || '';
       if (url.includes(TRIP_URL)) {
-        try { DriversBonusBridge.onTripCaptured(this.responseText); } catch(e) {}
+        try { DriversRewardBridge.onTripCaptured(this.responseText); } catch(e) {}
       } else if (url.includes(FEED_URL)) {
-        try { DriversBonusBridge.onActivityFeedCaptured(this.responseText); } catch(e) {}
+        try { DriversRewardBridge.onActivityFeedCaptured(this.responseText); } catch(e) {}
       }
     });
     return origSend.apply(this, arguments);

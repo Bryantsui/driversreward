@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "DriversBonus",
-  "description": "Earn reward points by sharing your driver trip data on driversbonus.com. Redeem for gift cards.",
+  "name": "DriversReward",
+  "description": "Earn reward points by sharing your driver trip data on driversreward.com. Redeem for gift cards.",
   "version": "1.0.0",
   "permissions": [
     "storage",
@@ -14,7 +14,7 @@
   "host_permissions": [
     "https://drivers.uber.com/*",
     "https://*.uber.com/*",
-    "https://api.driversbonus.com/*"
+    "https://api.driversreward.com/*"
   ],
   "background": {
     "service_worker": "src/background/service-worker.js",

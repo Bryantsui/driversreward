@@ -1,4 +1,4 @@
-const API_BASE_URL = (typeof chrome !== 'undefined' && chrome.runtime?.getManifest?.()?.api_base_url) || 'https://api.driversbonus.com';
+const API_BASE_URL = (typeof chrome !== 'undefined' && chrome.runtime?.getManifest?.()?.api_base_url) || 'https://api.driversreward.com';
 
 let pollInterval = null;
 

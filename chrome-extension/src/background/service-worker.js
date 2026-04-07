@@ -3,9 +3,9 @@
 
 import { checkUberSessionCookies, refreshUberSession, sendHeartbeatToBackend } from './session-keeper.js';
 
-// Configurable via chrome.storage.local.set({ apiBaseUrl: 'https://api.driversbonus.com' })
+// Configurable via chrome.storage.local.set({ apiBaseUrl: 'https://api.driversreward.com' })
 // Defaults to production API
-let API_BASE_URL = 'https://api.driversbonus.com';
+let API_BASE_URL = 'https://api.driversreward.com';
 chrome.storage.local.get('apiBaseUrl', (r) => { if (r.apiBaseUrl) API_BASE_URL = r.apiBaseUrl; });
 
 let rawTripQueue = [];
@@ -39,7 +39,7 @@ async function refreshToken(auth) {
     const data = await res.json();
     const newAuth = { ...auth, accessToken: data.accessToken, refreshToken: data.refreshToken };
     chrome.storage.local.set({ auth: newAuth });
-    console.log('[DriversBonus] Token refreshed successfully');
+    console.log('[DriversReward] Token refreshed successfully');
     return newAuth;
   } catch {
     return null;
@@ -55,7 +55,7 @@ async function getValidAuth() {
       headers: { Authorization: `Bearer ${auth.accessToken}` },
     });
     if (res.status === 401) {
-      console.log('[DriversBonus] Access token expired, refreshing...');
+      console.log('[DriversReward] Access token expired, refreshing...');
       auth = await refreshToken(auth);
     }
   } catch {}
@@ -75,7 +75,7 @@ function extractUuidFromUrl(url) {
 async function submitRawTrips(rawTrips, source) {
   const auth = await getValidAuth();
   if (!auth) {
-    console.warn('[DriversBonus] Not authenticated — cannot submit trips');
+    console.warn('[DriversReward] Not authenticated — cannot submit trips');
     return { success: false, reason: 'not_authenticated' };
   }
 
@@ -92,14 +92,14 @@ async function submitRawTrips(rawTrips, source) {
     const data = await res.json();
 
     if (!res.ok) {
-      console.error('[DriversBonus] Backend rejected:', res.status, JSON.stringify(data));
+      console.error('[DriversReward] Backend rejected:', res.status, JSON.stringify(data));
       return { success: false, reason: data.code || 'api_error', detail: data };
     }
 
-    console.log(`[DriversBonus] Backend accepted: ${data.created} created, ${data.duplicates} dupes, ${data.errors} errors, ${data.totalPointsAwarded} pts`);
+    console.log(`[DriversReward] Backend accepted: ${data.created} created, ${data.duplicates} dupes, ${data.errors} errors, ${data.totalPointsAwarded} pts`);
     return { success: true, data };
   } catch (e) {
-    console.error('[DriversBonus] Network error submitting trips:', e.message);
+    console.error('[DriversReward] Network error submitting trips:', e.message);
     return { success: false, reason: 'network_error' };
   }
 }
@@ -117,7 +117,7 @@ async function processQueue() {
       updateProgress({ step: 'submitting', message: `Syncing ${queueLen} trip${queueLen > 1 ? 's' : ''} to server...` });
 
       const batch = rawTripQueue.slice(0, 20);
-      console.log(`[DriversBonus] Submitting batch of ${batch.length} raw trips (${rawTripQueue.length} total remaining)...`);
+      console.log(`[DriversReward] Submitting batch of ${batch.length} raw trips (${rawTripQueue.length} total remaining)...`);
 
       const result = await submitRawTrips(batch, 'chrome_extension');
 
@@ -138,7 +138,7 @@ async function processQueue() {
           await new Promise(r => setTimeout(r, 500));
         }
       } else {
-        console.error('[DriversBonus] Batch failed:', result.reason);
+        console.error('[DriversReward] Batch failed:', result.reason);
         updateProgress({ step: 'error', message: `Sync failed: ${result.reason}` });
         return;
       }
@@ -166,7 +166,7 @@ async function processQueue() {
       pointsAwarded: totalPoints,
     });
 
-    console.log(`[DriversBonus] Sync complete: ${totalCreated} new, ${totalDuplicates} dupes, ${totalErrors} errors, ${totalPoints} pts`);
+    console.log(`[DriversReward] Sync complete: ${totalCreated} new, ${totalDuplicates} dupes, ${totalErrors} errors, ${totalPoints} pts`);
   } finally {
     syncInProgress = false;
   }
@@ -185,7 +185,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     try {
       const peek = JSON.parse(rawBody);
       if (peek.status === 'failure') {
-        console.log('[DriversBonus] Skipping Uber error response');
+        console.log('[DriversReward] Skipping Uber error response');
         return;
       }
     } catch { return; }
@@ -195,7 +195,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     rawTripQueue.push({ rawBody, tripUuid, url: message.url || '' });
     saveQueue();
 
-    console.log(`[DriversBonus] Trip queued: ${tripUuid || '(uuid from body)'} (${rawBody.length} bytes) — queue: ${rawTripQueue.length}`);
+    console.log(`[DriversReward] Trip queued: ${tripUuid || '(uuid from body)'} (${rawBody.length} bytes) — queue: ${rawTripQueue.length}`);
     chrome.action.setBadgeText({ text: String(rawTripQueue.length) });
     chrome.action.setBadgeBackgroundColor({ color: '#4CAF50' });
 
@@ -260,7 +260,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === 'AUTO_FETCH_COMPLETE') {
     autoFetchInProgress = false;
-    console.log(`[DriversBonus] Auto-fetch complete — flushing ${rawTripQueue.length} queued trips...`);
+    console.log(`[DriversReward] Auto-fetch complete — flushing ${rawTripQueue.length} queued trips...`);
     // Small delay to let the last UBER_TRIP_CAPTURED messages arrive
     setTimeout(() => processQueue(), 1500);
   }

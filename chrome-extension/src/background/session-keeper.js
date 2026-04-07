@@ -9,7 +9,7 @@
 const UBER_ORIGIN = 'https://drivers.uber.com';
 const HEARTBEAT_INTERVAL_MINUTES = 10;
 const SESSION_REFRESH_INTERVAL_MINUTES = 30;
-const API_BASE_URL = 'https://api.driversbonus.com';
+const API_BASE_URL = 'https://api.driversreward.com';
 
 let sessionRefreshTabId = null;
 

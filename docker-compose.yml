@@ -6,7 +6,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      DATABASE_URL: postgresql://rewards:rewards_secret@postgres:5432/driversbonus
+      DATABASE_URL: postgresql://rewards:rewards_secret@postgres:5432/driversreward
       REDIS_URL: redis://redis:6379
       JWT_ACCESS_SECRET: dev_access_secret_change_me_in_production_min_32_chars
       JWT_REFRESH_SECRET: dev_refresh_secret_change_me_in_production_min_32_chars
@@ -30,7 +30,7 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: driversbonus
+      POSTGRES_DB: driversreward
       POSTGRES_USER: rewards
       POSTGRES_PASSWORD: rewards_secret
     ports:
@@ -38,7 +38,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U rewards -d driversbonus"]
+      test: ["CMD-SHELL", "pg_isready -U rewards -d driversreward"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -62,7 +62,7 @@ services:
       dockerfile: infrastructure/docker/Dockerfile.backend
     command: npx prisma migrate deploy
     environment:
-      DATABASE_URL: postgresql://rewards:rewards_secret@postgres:5432/driversbonus
+      DATABASE_URL: postgresql://rewards:rewards_secret@postgres:5432/driversreward
     depends_on:
       postgres:
         condition: service_healthy

@@ -6,7 +6,7 @@
 
   window.addEventListener('message', (event) => {
     if (event.source !== window) return;
-    if (event.data?.source !== 'driversbonus-interceptor') return;
+    if (event.data?.source !== 'driversreward-interceptor') return;
 
     const { type, body, url } = event.data;
 

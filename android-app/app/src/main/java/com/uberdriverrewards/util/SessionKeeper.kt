@@ -123,7 +123,7 @@ class SessionRefreshWorker(
             connection.apply {
                 requestMethod = "GET"
                 setRequestProperty("Cookie", cookies)
-                setRequestProperty("User-Agent", "Mozilla/5.0 DriversBonus/1.0")
+                setRequestProperty("User-Agent", "Mozilla/5.0 DriversReward/1.0")
                 connectTimeout = 15_000
                 readTimeout = 15_000
                 instanceFollowRedirects = true
