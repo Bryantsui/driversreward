@@ -237,19 +237,12 @@ export async function requestPasswordReset(email: string, ip?: string) {
     },
   });
 
-  // In production: send email via SendGrid/SES/etc.
-  // For development: log the code
-  if (env.NODE_ENV === 'development') {
-    logger.info({ email, code }, 'DEV ONLY — password reset code');
-  }
-
-  // TODO: Replace with actual email delivery
-  // await sendEmail(email, 'Password Reset', `Your reset code is: ${code}. It expires in 15 minutes.`);
-
+  // TODO: Replace with actual email delivery (SendGrid/SES/Resend).
+  // Until email is configured, we return the code directly so the client can display it.
   logger.info({ email, ip }, 'Password reset code generated');
   return {
-    message: 'If that email is registered, a reset code has been sent.',
-    ...(env.NODE_ENV === 'development' ? { _devCode: code } : {}),
+    message: 'If that email is registered, a reset code has been generated.',
+    _resetCode: code,
   };
 }
 

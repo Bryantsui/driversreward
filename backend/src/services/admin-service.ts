@@ -546,3 +546,39 @@ export async function getGiftCardList() {
     include: { _count: { select: { redemptions: true } } },
   });
 }
+
+export async function adminResetDriverPassword(
+  driverEmail: string,
+  newPassword: string,
+  adminId: string,
+) {
+  const driver = await prisma.driver.findUnique({ where: { email: driverEmail } });
+  if (!driver) throw new AppError(404, 'Driver not found', 'DRIVER_NOT_FOUND');
+
+  const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.driver.update({
+      where: { id: driver.id },
+      data: { passwordHash, resetTokenHash: null, resetTokenExpiresAt: null },
+    });
+
+    await tx.refreshToken.updateMany({
+      where: { driverId: driver.id, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        driverId: driver.id,
+        action: 'ADMIN_PASSWORD_RESET',
+        resource: 'driver',
+        resourceId: driver.id,
+        details: { adminId },
+      },
+    });
+  });
+
+  logger.info({ driverEmail, adminId }, 'Admin force-reset driver password');
+  return { message: `Password reset for ${driverEmail}` };
+}

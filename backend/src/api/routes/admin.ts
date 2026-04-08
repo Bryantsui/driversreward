@@ -17,6 +17,7 @@ import {
   fulfillRedemption,
   cancelRedemption,
   getGiftCardList,
+  adminResetDriverPassword,
 } from '../../services/admin-service.js';
 import type { Region, TripReviewStatus } from '@prisma/client';
 
@@ -399,6 +400,25 @@ router.post(
       const input = createAdminSchema.parse(req.body);
       const result = await createAdmin(input.email, input.password, input.name, input.role);
       res.status(201).json(result);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// Force-reset a driver's password (super_admin only)
+router.post(
+  '/drivers/reset-password',
+  requireRole('SUPER_ADMIN'),
+  async (req: Request, res: Response, next) => {
+    try {
+      const { email, newPassword } = req.body as { email: string; newPassword: string };
+      if (!email || !newPassword || newPassword.length < 8) {
+        res.status(400).json({ error: 'email and newPassword (min 8 chars) are required' });
+        return;
+      }
+      const result = await adminResetDriverPassword(email, newPassword, req.admin!.sub);
+      res.json(result);
     } catch (err) {
       next(err);
     }

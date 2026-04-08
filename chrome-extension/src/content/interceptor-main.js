@@ -10,9 +10,29 @@
   const DELAY_BETWEEN_TRIPS_MS = 500;
   const DELAY_BETWEEN_WEEKS_MS = 800;
 
-  let capturedHeaders = null;
+  let capturedHeaders = window.__drCapturedHeaders || null;
   let autoFetchStarted = false;
   const originalFetch = window.fetch;
+
+  // If the early hook already captured headers before this script ran, trigger auto-fetch
+  if (capturedHeaders && hasUsableHeaders(capturedHeaders)) {
+    console.log('[DriversReward] Headers already available from early hook — triggering auto-fetch');
+    setTimeout(() => {
+      post('UBER_LOGIN_STATE', JSON.stringify({ state: 'logged_in', message: 'Uber session active' }), '');
+      triggerAutoFetch();
+    }, 500);
+  }
+
+  // Periodically check if an external script (like Android's early hook) captured headers
+  setInterval(() => {
+    if (!capturedHeaders && window.__drCapturedHeaders && hasUsableHeaders(window.__drCapturedHeaders)) {
+      capturedHeaders = window.__drCapturedHeaders;
+      console.log('[DriversReward] Adopted headers from window.__drCapturedHeaders');
+      if (loginCheckInterval) { clearInterval(loginCheckInterval); loginCheckInterval = null; }
+      post('UBER_LOGIN_STATE', JSON.stringify({ state: 'logged_in', message: 'Uber session active' }), '');
+      triggerAutoFetch();
+    }
+  }, 1000);
 
   function post(type, body, url) {
     window.postMessage(
@@ -61,7 +81,7 @@
 
   function detectLoginState() {
     const url = window.location.href;
-    const isLoginPage = url.includes('/auth/login') || url.includes('/login') || url.includes('/auth/mfa');
+    const isLoginPage = url.includes('/auth/login') || url.includes('/login') || url.includes('/auth/mfa') || url.includes('auth.uber.com');
     const isPortalPage = url.includes('drivers.uber.com') && !isLoginPage;
 
     if (isLoginPage) {

@@ -327,7 +327,13 @@ document.getElementById('btn-send-code')?.addEventListener('click', async () => 
     resetEmail = email;
     hideAllAuthForms();
     document.getElementById('reset-form-wrap').style.display = '';
-    showSuccess('Reset code sent! Check your email.');
+
+    if (data._resetCode) {
+      document.getElementById('reset-code').value = data._resetCode;
+      showSuccess('Your reset code is ready. Please set a new password below.');
+    } else {
+      showSuccess('Reset code sent! Check your email.');
+    }
   } catch { showError('Network error. Please try again.'); }
   finally {
     btn.disabled = false;
