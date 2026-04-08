@@ -20,6 +20,7 @@ RUN addgroup --system --gid 1001 nodejs && \
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=build /app/src/admin-ui ./src/admin-ui
 COPY backend/prisma ./prisma
 USER appuser
 EXPOSE 3000
