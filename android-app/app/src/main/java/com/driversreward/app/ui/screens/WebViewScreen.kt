@@ -4,13 +4,14 @@ import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.util.Log
 import android.webkit.*
+import com.driversreward.app.BuildConfig
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.driversreward.app.ui.theme.*
 import com.google.gson.Gson
 import java.io.InputStreamReader
 
@@ -84,34 +86,32 @@ fun WebViewScreen(
         """.trimIndent()
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        // Top bar
+    Column(modifier = Modifier.fillMaxSize().background(Gray50)) {
         TopAppBar(
-            title = { Text("Uber Driver Portal") },
+            title = { Text("Uber Driver Portal", fontWeight = FontWeight.SemiBold) },
             navigationIcon = {
                 IconButton(onClick = onNavigateBack) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                 }
             },
             colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = Color.Black,
-                titleContentColor = Color.White,
-                navigationIconContentColor = Color.White
+                containerColor = White,
+                titleContentColor = Gray900,
+                navigationIconContentColor = Indigo600
             )
         )
 
-        // Status Panel — mirrors the extension's "Data Collection Status" section
         StatusPanel(uiState)
 
-        // WebView fills the rest
         Box(modifier = Modifier.weight(1f)) {
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
                 factory = { ctx ->
                     val cookieManager = CookieManager.getInstance()
                     cookieManager.setAcceptCookie(true)
-
-                    WebView.setWebContentsDebuggingEnabled(true)
+                    if (BuildConfig.DEBUG) {
+                        WebView.setWebContentsDebuggingEnabled(true)
+                    }
 
                     WebView(ctx).apply {
                         cookieManager.setAcceptThirdPartyCookies(this, true)
@@ -124,16 +124,13 @@ fun WebViewScreen(
                             setSupportMultipleWindows(false)
                             loadWithOverviewMode = true
                             useWideViewPort = true
-                            mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+                            mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
                             userAgentString = userAgentString
                                 .replace("; wv)", ")")
                                 .replace("Version/\\S+\\s*".toRegex(), "")
                         }
 
-                        addJavascriptInterface(
-                            PostMessageBridge(viewModel),
-                            "DriversRewardBridge"
-                        )
+                        addJavascriptInterface(PostMessageBridge(viewModel), "DriversRewardBridge")
 
                         webChromeClient = object : WebChromeClient() {
                             override fun onConsoleMessage(msg: ConsoleMessage?): Boolean {
@@ -173,19 +170,13 @@ fun WebViewScreen(
     }
 }
 
-// ──────────────────────────────────────────────────────────────
-// Status Panel — replicates the extension's 4-step progress UI
-// ──────────────────────────────────────────────────────────────
-
 @Composable
 fun StatusPanel(uiState: WebViewUiState) {
     val step = uiState.syncStep
     val login = uiState.loginState
 
-    // Determine each step's state: "", "active", "done", "error"
     val s1 = when {
         login == "logged_in" || step != null -> "done"
-        login == "logged_out" || login == "unknown" -> "active"
         login == "checking" -> "active"
         else -> ""
     }
@@ -206,10 +197,8 @@ fun StatusPanel(uiState: WebViewUiState) {
     }
 
     val progressPct = when {
-        step == "fetching_history" && uiState.syncTotal > 0 ->
-            uiState.syncProgress.toFloat() / uiState.syncTotal
-        step == "fetching_details" && uiState.syncTotal > 0 ->
-            uiState.syncProgress.toFloat() / uiState.syncTotal
+        step == "fetching_history" && uiState.syncTotal > 0 -> uiState.syncProgress.toFloat() / uiState.syncTotal
+        step == "fetching_details" && uiState.syncTotal > 0 -> uiState.syncProgress.toFloat() / uiState.syncTotal
         step == "submitting" -> 0.9f
         step == "complete" -> 1f
         else -> 0f
@@ -229,12 +218,12 @@ fun StatusPanel(uiState: WebViewUiState) {
     val showBar = step != null || login == "checking"
 
     Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = White)
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
-            Text("Data Collection Status", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Text("Data Collection Status", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Indigo600)
             Spacer(modifier = Modifier.height(10.dp))
 
             StepRow(1, "Log in to Uber Driver Portal", s1)
@@ -245,19 +234,18 @@ fun StatusPanel(uiState: WebViewUiState) {
             if (showBar) {
                 Spacer(modifier = Modifier.height(10.dp))
                 LinearProgressIndicator(
-                    progress = if (progressPct > 0f) progressPct else 0f,
+                    progress = { if (progressPct > 0f) progressPct else 0f },
                     modifier = Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)),
-                    color = Color.Black,
-                    trackColor = Color(0xFFE5E7EB)
+                    color = Indigo600,
+                    trackColor = Gray200,
                 )
             }
 
             if (detailText.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(6.dp))
-                Text(detailText, fontSize = 11.sp, color = Color.Gray)
+                Text(detailText, fontSize = 11.sp, color = Gray400)
             }
 
-            // Session dot
             Spacer(modifier = Modifier.height(10.dp))
             SessionDot(login)
         }
@@ -267,47 +255,40 @@ fun StatusPanel(uiState: WebViewUiState) {
 @Composable
 fun StepRow(number: Int, label: String, state: String) {
     val dotColor = when (state) {
-        "done" -> Color(0xFF16A34A)
-        "active" -> Color.Black
-        "error" -> Color(0xFFDC2626)
-        else -> Color(0xFFE5E7EB)
-    }
-    val iconColor = when (state) {
-        "done", "active" -> Color.White
-        "error" -> Color.White
-        else -> Color(0xFF9CA3AF)
+        "done" -> Emerald500
+        "active" -> Indigo600
+        "error" -> Rose500
+        else -> Gray200
     }
     val textColor = when (state) {
-        "active" -> Color.Black
-        "done" -> Color(0xFF16A34A)
-        "error" -> Color(0xFFDC2626)
-        else -> Color(0xFF9CA3AF)
+        "active" -> Gray900
+        "done" -> Emerald500
+        "error" -> Rose500
+        else -> Gray400
     }
     val fontWeight = if (state == "active") FontWeight.Medium else FontWeight.Normal
     val icon = when (state) {
-        "done" -> "✓"
-        "error" -> "✗"
+        "done" -> "\u2713"
+        "error" -> "\u2717"
         else -> "$number"
     }
 
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(vertical = 3.dp)
-    ) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 3.dp)) {
         Box(
             modifier = Modifier.size(20.dp).clip(CircleShape).background(dotColor),
             contentAlignment = Alignment.Center
         ) {
             if (state == "active") {
                 val infiniteTransition = rememberInfiniteTransition(label = "spin")
+                @Suppress("UNUSED_VARIABLE")
                 val angle by infiniteTransition.animateFloat(
                     initialValue = 0f, targetValue = 360f,
                     animationSpec = infiniteRepeatable(tween(600, easing = LinearEasing)),
                     label = "spin"
                 )
-                Text("↻", fontSize = 10.sp, color = iconColor)
+                Text("\u21BB", fontSize = 10.sp, color = White)
             } else {
-                Text(icon, fontSize = 10.sp, color = iconColor, fontWeight = FontWeight.Bold)
+                Text(icon, fontSize = 10.sp, color = if (state.isEmpty()) Gray400 else White, fontWeight = FontWeight.Bold)
             }
         }
         Spacer(modifier = Modifier.width(10.dp))
@@ -318,10 +299,10 @@ fun StepRow(number: Int, label: String, state: String) {
 @Composable
 fun SessionDot(login: String) {
     val dotColor = when (login) {
-        "logged_in" -> Color(0xFF4CAF50)
-        "checking" -> Color(0xFF2196F3)
-        "logged_out" -> Color(0xFFFF9800)
-        else -> Color(0xFF9E9E9E)
+        "logged_in" -> Emerald500
+        "checking" -> Sky500
+        "logged_out" -> Amber500
+        else -> Gray400
     }
     val text = when (login) {
         "logged_in" -> "Uber session active"
@@ -333,25 +314,17 @@ fun SessionDot(login: String) {
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val alpha by infiniteTransition.animateFloat(
         initialValue = 1f, targetValue = 0.4f,
-        animationSpec = infiniteRepeatable(
-            tween(750, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
+        animationSpec = infiniteRepeatable(tween(750, easing = LinearEasing), repeatMode = RepeatMode.Reverse),
         label = "pulse"
     )
     val actualAlpha = if (login == "checking") alpha else 1f
 
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            modifier = Modifier.size(8.dp).clip(CircleShape)
-                .background(dotColor.copy(alpha = actualAlpha))
-        )
+        Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(dotColor.copy(alpha = actualAlpha)))
         Spacer(modifier = Modifier.width(8.dp))
-        Text(text, fontSize = 12.sp, color = Color(0xFF555555))
+        Text(text, fontSize = 12.sp, color = Gray400)
     }
 }
-
-// ──────────────────────────────────────────────────────────────
 
 private class PostMessageBridge(private val viewModel: WebViewViewModel) {
     private val gson = Gson()
@@ -362,11 +335,15 @@ private class PostMessageBridge(private val viewModel: WebViewViewModel) {
             Log.d(TAG, "Bridge: ${messageJson.take(200)}")
             val msg = gson.fromJson(messageJson, InterceptorMessage::class.java)
             when (msg.type) {
-                "UBER_TRIP_CAPTURED" -> viewModel.onTripCaptured(msg.body)
+                "UBER_TRIP_CAPTURED" -> viewModel.onTripCaptured(msg.body, msg.url ?: "")
                 "UBER_ACTIVITY_FEED_CAPTURED" -> viewModel.onActivityFeedCaptured(msg.body)
                 "AUTO_FETCH_COMPLETE" -> {
                     viewModel.onProgressUpdate("complete", "All done!", 0, 0)
                     viewModel.onAutoFetchComplete()
+                }
+                "UBER_CSRF_CAPTURED" -> {
+                    val bodyObj = org.json.JSONObject(msg.body)
+                    viewModel.onCsrfCaptured(bodyObj.optString("csrfToken", ""))
                 }
                 "UBER_LOGIN_STATE" -> {
                     val bodyObj = org.json.JSONObject(msg.body)

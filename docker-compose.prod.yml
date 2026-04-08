@@ -8,6 +8,7 @@ services:
       - REDIS_URL=redis://redis:6379
       - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - JWT_ADMIN_SECRET=${JWT_ADMIN_SECRET}
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
       - PORT=3000
       - NODE_ENV=production

@@ -216,7 +216,8 @@ export async function requestPasswordReset(email: string, ip?: string) {
   }
 
   // Generate a 6-digit numeric code (user-friendly for manual entry in extension)
-  const code = String(Math.floor(100000 + Math.random() * 900000));
+  const { randomInt } = await import('node:crypto');
+  const code = String(randomInt(100000, 999999));
   const codeHash = hashToken(code);
 
   await prisma.driver.update({
@@ -238,11 +239,9 @@ export async function requestPasswordReset(email: string, ip?: string) {
   });
 
   // TODO: Replace with actual email delivery (SendGrid/SES/Resend).
-  // Until email is configured, we return the code directly so the client can display it.
-  logger.info({ email, ip }, 'Password reset code generated');
+  logger.info({ email, ip, resetCode: code }, 'Password reset code generated (check server logs)');
   return {
     message: 'If that email is registered, a reset code has been generated.',
-    _resetCode: code,
   };
 }
 

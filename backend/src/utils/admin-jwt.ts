@@ -1,7 +1,7 @@
 import * as jose from 'jose';
 import { env } from '../config/env.js';
 
-const adminSecret = new TextEncoder().encode(env.JWT_ADMIN_SECRET || env.JWT_ACCESS_SECRET + '_admin');
+const adminSecret = new TextEncoder().encode(env.JWT_ADMIN_SECRET);
 
 export interface AdminTokenPayload {
   sub: string;

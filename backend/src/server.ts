@@ -17,6 +17,7 @@ import { adminRouter } from './api/routes/admin.js';
 import { sessionRouter } from './api/routes/session.js';
 import { startScrapeWorker } from './workers/scrape-worker.js';
 import { startScheduler } from './jobs/scrape-scheduler.js';
+import { startDataPurgeWorker, scheduleRecurringPurgeJobs } from './jobs/data-purge.js';
 
 const app = express();
 
@@ -120,6 +121,8 @@ const server = env.NODE_ENV !== 'test'
       try {
         startScrapeWorker();
         startScheduler();
+        startDataPurgeWorker();
+        scheduleRecurringPurgeJobs();
       } catch (e) {
         logger.error({ err: e }, 'Failed to start background services (non-fatal)');
       }
