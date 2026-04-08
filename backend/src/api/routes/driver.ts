@@ -28,7 +28,15 @@ router.get('/me', async (req: Request, res: Response, next) => {
       },
     });
 
-    const name = driver.nameEncrypted ? decrypt(driver.nameEncrypted.toString()) : null;
+    let name: string | null = null;
+    if (driver.nameEncrypted) {
+      try {
+        const raw = Buffer.from(driver.nameEncrypted).toString('utf8');
+        name = decrypt(raw);
+      } catch {
+        name = null;
+      }
+    }
 
     res.json({
       ...driver,
