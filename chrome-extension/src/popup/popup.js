@@ -1,6 +1,8 @@
 const API_BASE_URL = (typeof chrome !== 'undefined' && chrome.runtime?.getManifest?.()?.api_base_url) || 'https://api.driversreward.com';
 
 let pollInterval = null;
+let countdownInterval = null;
+let cachedSyncWindow = null;
 
 async function init() {
   const auth = await sendMessage({ type: 'GET_AUTH' });
@@ -35,11 +37,133 @@ async function loadDashboard(auth) {
         data.pointsBalance?.toLocaleString() || '0';
       document.getElementById('lifetime-points').textContent =
         data.lifetimePoints?.toLocaleString() || '0';
+      document.getElementById('month-points').textContent =
+        data.monthToDate?.toLocaleString() || '0';
+
+      if (data.syncWindow) {
+        cachedSyncWindow = data.syncWindow;
+        updateSyncWindowBanner();
+        startCountdown();
+      }
+
+      renderMonthlyBreakdown(data.monthlyBreakdown || []);
     }
   } catch {
-    document.getElementById('points-balance').textContent = '—';
+    document.getElementById('points-balance').textContent = '\u2014';
   }
 }
+
+// --- Sync Window Banner + Countdown ---
+function formatWindowDate(isoDate) {
+  const d = new Date(isoDate);
+  const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return `${days[d.getDay()]} ${months[d.getMonth()]} ${d.getDate()}, ${hh}:${mm}`;
+}
+
+function formatRelativeTime(ms) {
+  if (ms <= 0) return 'soon';
+  const hours = Math.floor(ms / 3600000);
+  const days = Math.floor(hours / 24);
+  if (days >= 2) return `in ${days} days`;
+  if (days === 1) return 'in 1 day';
+  if (hours >= 2) return `in ${hours} hours`;
+  if (hours === 1) return 'in about an hour';
+  return 'in less than an hour';
+}
+
+function updateSyncWindowBanner() {
+  const sw = cachedSyncWindow;
+  if (!sw) return;
+
+  const banner = document.getElementById('sync-window-banner');
+  const iconBox = document.getElementById('sw-icon-box');
+  const title = document.getElementById('sw-title');
+  const subtitle = document.getElementById('sw-subtitle');
+  banner.style.display = 'flex';
+
+  if (sw.inWindow) {
+    banner.className = 'sync-window-banner open';
+    iconBox.textContent = '\uD83C\uDF1F';
+    title.textContent = 'Earn Points Now';
+    subtitle.textContent = `Until ${formatWindowDate(sw.windowEnd)}`;
+  } else {
+    banner.className = 'sync-window-banner closed';
+    iconBox.textContent = '\uD83D\uDCC5';
+    title.textContent = 'Next Earning Window';
+    const nextStart = formatWindowDate(sw.nextWindowStart);
+    const nextEnd = formatWindowDate(sw.nextWindowEnd);
+    const relTime = formatRelativeTime(new Date(sw.nextWindowStart) - Date.now());
+    subtitle.textContent = `${nextStart} \u2013 ${nextEnd} \u00B7 Come back ${relTime}`;
+  }
+}
+
+function startCountdown() {
+  if (countdownInterval) clearInterval(countdownInterval);
+  countdownInterval = setInterval(() => {
+    if (!cachedSyncWindow) return;
+    const sw = cachedSyncWindow;
+    const now = Date.now();
+
+    if (sw.inWindow) {
+      const diff = new Date(sw.windowEnd) - now;
+      if (diff <= 0) {
+        cachedSyncWindow.inWindow = false;
+        updateSyncWindowBanner();
+        getAuth().then(auth => { if (auth) loadDashboard(auth); });
+        return;
+      }
+      document.getElementById('sw-subtitle').textContent = `Until ${formatWindowDate(sw.windowEnd)}`;
+    } else {
+      const diff = new Date(sw.nextWindowStart) - now;
+      if (diff <= 0) {
+        cachedSyncWindow.inWindow = true;
+        updateSyncWindowBanner();
+        getAuth().then(auth => { if (auth) loadDashboard(auth); });
+        return;
+      }
+      const nextStart = formatWindowDate(sw.nextWindowStart);
+      const nextEnd = formatWindowDate(sw.nextWindowEnd);
+      const relTime = formatRelativeTime(diff);
+      document.getElementById('sw-subtitle').textContent = `${nextStart} \u2013 ${nextEnd} \u00B7 Come back ${relTime}`;
+    }
+  }, 60000);
+}
+
+// --- Monthly Breakdown ---
+function renderMonthlyBreakdown(breakdown) {
+  const section = document.getElementById('monthly-section');
+  const list = document.getElementById('monthly-list');
+
+  if (!breakdown.length) { section.style.display = 'none'; return; }
+
+  section.style.display = '';
+  list.innerHTML = '';
+
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  for (const entry of breakdown) {
+    const [yr, mo] = entry.month.split('-');
+    const label = `${monthNames[parseInt(mo) - 1]} ${yr}`;
+    const row = document.createElement('div');
+    row.className = 'monthly-row';
+    row.innerHTML = `<span class="monthly-month">${label}</span><span class="monthly-pts">+${entry.earned} pts</span>`;
+    list.appendChild(row);
+  }
+}
+
+document.getElementById('monthly-toggle')?.addEventListener('click', () => {
+  const list = document.getElementById('monthly-list');
+  const text = document.getElementById('monthly-toggle-text');
+  if (list.style.display === 'none') {
+    list.style.display = '';
+    text.textContent = 'Hide';
+  } else {
+    list.style.display = 'none';
+    text.textContent = 'Show';
+  }
+});
 
 // --- Polling for progress + login state ---
 function startPolling() {
@@ -49,6 +173,7 @@ function startPolling() {
 
 function stopPolling() {
   if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+  if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
 }
 
 function updateAllStatuses() {
@@ -65,7 +190,13 @@ function updateAllStatuses() {
 
 function updatePendingCount(queue) {
   const count = Array.isArray(queue) ? queue.length : 0;
-  document.getElementById('pending-count').textContent = count;
+  const badge = document.getElementById('pending-badge');
+  if (count > 0) {
+    badge.style.display = '';
+    badge.textContent = `${count} trip${count !== 1 ? 's' : ''} pending sync`;
+  } else {
+    badge.style.display = 'none';
+  }
 }
 
 // --- Progress step UI ---
@@ -74,9 +205,9 @@ function setStepState(stepId, state) {
   if (!el) return;
   el.className = `step-item ${state}`;
   const icon = el.querySelector('.step-icon');
-  if (state === 'done') icon.textContent = '✓';
+  if (state === 'done') icon.textContent = '\u2713';
   else if (state === 'active') icon.innerHTML = '<span class="spinner"></span>';
-  else if (state === 'error') icon.textContent = '✗';
+  else if (state === 'error') icon.textContent = '\u2717';
 }
 
 function updateProgressUI(loginState, progress) {
@@ -86,14 +217,12 @@ function updateProgressUI(loginState, progress) {
   const barWrap = document.getElementById('progress-bar-wrap');
   const barFill = document.getElementById('progress-bar-fill');
 
-  // Step 1: Uber login
   if (uberState === 'logged_in' || step) {
     setStepState('step-uber-login', 'done');
   } else if (uberState === 'logged_out') {
     setStepState('step-uber-login', 'active');
     detail.textContent = 'Please open the Uber Driver Portal and log in.';
     barWrap.style.display = 'none';
-    // Reset other steps
     setStepState('step-fetch-history', '');
     setStepState('step-fetch-details', '');
     setStepState('step-sync', '');
@@ -104,14 +233,12 @@ function updateProgressUI(loginState, progress) {
     barWrap.style.display = 'none';
     return;
   } else {
-    // No state yet — waiting for user action
     setStepState('step-uber-login', '');
     detail.textContent = 'Click "Open Uber Driver Portal" to begin.';
     barWrap.style.display = 'none';
     return;
   }
 
-  // Step 2: Fetching history
   if (step === 'starting' || step === 'fetching_history') {
     setStepState('step-fetch-history', 'active');
     setStepState('step-fetch-details', '');
@@ -129,7 +256,6 @@ function updateProgressUI(loginState, progress) {
     setStepState('step-fetch-history', 'done');
   }
 
-  // Step 3: Fetching details
   if (step === 'fetching_details') {
     setStepState('step-fetch-details', 'active');
     setStepState('step-sync', '');
@@ -142,7 +268,6 @@ function updateProgressUI(loginState, progress) {
     setStepState('step-fetch-details', 'done');
   }
 
-  // Step 4: Syncing
   if (step === 'submitting') {
     setStepState('step-sync', 'active');
     barWrap.style.display = 'block';
@@ -154,7 +279,6 @@ function updateProgressUI(loginState, progress) {
     barWrap.style.display = 'block';
     barFill.style.width = '100%';
     detail.textContent = 'All done! Your points have been updated.';
-    // Refresh dashboard points
     getAuth().then((auth) => { if (auth) loadDashboard(auth); });
   } else if (step === 'error') {
     setStepState('step-sync', 'error');
@@ -169,34 +293,30 @@ async function getAuth() {
 
 function updateSyncResult(progress, lastResult) {
   const container = document.getElementById('sync-result');
-  if (!progress || progress.step !== 'done' || !lastResult) {
-    // Check if we have a previous result to show
-    if (lastResult && lastResult.created !== undefined) {
-      container.style.display = 'block';
-      const hasErrors = lastResult.errors > 0;
-      container.className = `result-card ${hasErrors ? 'has-errors' : ''}`;
-      container.innerHTML = `
-        <div style="font-size:13px;font-weight:600;margin-bottom:8px">Last Sync Result</div>
-        <div class="result-stat"><strong>${lastResult.created || 0}</strong> New trips</div>
-        <div class="result-stat"><strong>${lastResult.duplicates || 0}</strong> Already synced</div>
-        <div class="result-stat"><strong>+${lastResult.totalPointsAwarded || 0}</strong> Points earned</div>
-        ${hasErrors ? `<div style="font-size:11px;color:#dc2626;margin-top:4px">${lastResult.errors} trips had errors</div>` : ''}
-      `;
-    } else {
-      container.style.display = 'none';
-    }
+  const result = (progress?.step === 'done') ? progress : lastResult;
+  if (!result || result.created === undefined) {
+    container.style.display = 'none';
     return;
   }
 
   container.style.display = 'block';
-  const hasErrors = (progress.errors || 0) > 0;
-  container.className = `result-card ${hasErrors ? 'has-errors' : ''}`;
+  const hasErrors = (result.errors || 0) > 0;
+  const outsideWindow = result.windowEligible === false;
+
+  let cls = 'result-card';
+  if (hasErrors) cls += ' has-errors';
+  else if (outsideWindow) cls += ' outside-window';
+  container.className = cls;
+
+  const title = (progress?.step === 'done') ? 'Sync Complete!' : 'Last Sync Result';
+
   container.innerHTML = `
-    <div style="font-size:13px;font-weight:600;margin-bottom:8px">Sync Complete!</div>
-    <div class="result-stat"><strong>${progress.created || 0}</strong> New trips</div>
-    <div class="result-stat"><strong>${progress.duplicates || 0}</strong> Already synced</div>
-    <div class="result-stat"><strong>+${progress.pointsAwarded || 0}</strong> Points earned</div>
-    ${hasErrors ? `<div style="font-size:11px;color:#dc2626;margin-top:4px">${progress.errors} trips had errors</div>` : ''}
+    <div style="font-size:13px;font-weight:600;margin-bottom:8px">${title}</div>
+    <div class="result-stat"><strong>${result.created || 0}</strong> New trips</div>
+    <div class="result-stat"><strong>${result.duplicates || 0}</strong> Already synced</div>
+    <div class="result-stat"><strong>+${result.totalPointsAwarded || result.pointsAwarded || 0}</strong> Points earned</div>
+    ${hasErrors ? `<div style="font-size:11px;color:#dc2626;margin-top:4px">${result.errors} trips had errors</div>` : ''}
+    ${outsideWindow ? `<div style="font-size:11px;color:#92400e;margin-top:6px">Trips stored but 0 points earned (outside sync window)</div>` : ''}
   `;
 }
 
@@ -213,7 +333,7 @@ function updateUberSessionUI(status) {
 
   if (!status.active) {
     dot.className = 'sync-dot error';
-    text.textContent = 'Uber session: EXPIRED — please log in again';
+    text.textContent = 'Uber session: EXPIRED \u2014 please log in again';
     return;
   }
 
@@ -293,7 +413,6 @@ function showLoginForm() {
   document.getElementById('btn-show-register').style.display = '';
 }
 
-// Forgot password flow
 let resetEmail = '';
 
 document.getElementById('btn-show-forgot')?.addEventListener('click', (e) => {
@@ -426,6 +545,8 @@ document.getElementById('btn-rewards')?.addEventListener('click', async () => {
   document.getElementById('progress-section').style.display = 'none';
   document.getElementById('sync-result').style.display = 'none';
   document.getElementById('uber-session-bar').style.display = 'none';
+  document.getElementById('monthly-section').style.display = 'none';
+  document.getElementById('sync-window-banner').style.display = 'none';
   document.getElementById('rewards-section').style.display = 'block';
   await loadRewardsUI();
 });
@@ -435,6 +556,8 @@ document.getElementById('btn-back-main')?.addEventListener('click', () => {
   document.getElementById('main-actions').style.display = '';
   document.getElementById('progress-section').style.display = '';
   document.getElementById('uber-session-bar').style.display = '';
+  if (cachedSyncWindow) document.getElementById('sync-window-banner').style.display = 'flex';
+  document.getElementById('monthly-section').style.display = '';
 });
 
 async function loadRewardsUI() {
@@ -465,7 +588,7 @@ async function loadRewardsUI() {
         item.innerHTML = `
           <div>
             <div class="gc-name">${gc.name}</div>
-            <div class="gc-detail">${gc.provider} — ${gc.currency} ${gc.faceValue}</div>
+            <div class="gc-detail">${gc.provider} \u2014 ${gc.currency} ${gc.faceValue}</div>
           </div>
           <div style="text-align:right">
             <div class="gc-cost">${gc.pointsCost} pts</div>
@@ -488,7 +611,7 @@ async function loadRewardsUI() {
             });
             const result = await res.json();
             if (!res.ok) throw new Error(result.error || 'Redemption failed');
-            alert(`Request submitted! Your ${result.giftCardName} redemption is now being reviewed. We'll send you the gift card code shortly.`);
+            alert(`Request submitted! Your ${result.giftCardName} redemption is now being reviewed.`);
             loadRewardsUI();
             loadDashboard(auth);
           } catch (err) {
@@ -500,32 +623,33 @@ async function loadRewardsUI() {
       });
     }
 
-    // Redemption history
     const rdContainer = document.getElementById('my-redemptions');
     const rdList = document.getElementById('redemptions-list');
     if (rdRes.redemptions?.length > 0) {
       rdContainer.style.display = '';
       rdList.innerHTML = '';
       const statusCls = { PENDING: 'rd-pending', PROCESSING: 'rd-processing', FULFILLED: 'rd-fulfilled', FAILED: 'rd-failed', CANCELLED: 'rd-cancelled' };
-      const statusLabels = {
-        PENDING: 'Request Sent',
-        PROCESSING: 'Under Review',
-        FULFILLED: 'Gift Code Sent',
-        FAILED: 'Failed',
-        CANCELLED: 'Cancelled',
-      };
+      const statusLabels = { PENDING: 'Request Sent', PROCESSING: 'Under Review', FULFILLED: 'Gift Code Sent', FAILED: 'Failed', CANCELLED: 'Cancelled' };
       for (const rd of rdRes.redemptions) {
         const item = document.createElement('div');
         item.className = 'rd-item';
         let html = `
           <div style="display:flex;justify-content:space-between;align-items:center">
-            <span style="font-weight:500">${rd.giftCard?.name || 'Gift Card'}</span>
+            <span style="font-weight:500">${rd.giftCardName || rd.giftCard?.name || 'Gift Card'}</span>
             <span class="rd-status ${statusCls[rd.status] || ''}">${statusLabels[rd.status] || rd.status}</span>
           </div>
-          <div style="color:#888;font-size:11px;margin-top:2px">${new Date(rd.createdAt).toLocaleDateString()} — ${rd.pointsSpent} pts</div>
+          <div style="color:#888;font-size:11px;margin-top:2px">${new Date(rd.createdAt).toLocaleDateString()} \u2014 ${rd.pointsSpent} pts</div>
         `;
         if (rd.status === 'FULFILLED' && rd.giftCardCode) {
-          html += `<div class="gc-code">${rd.giftCardCode}</div>`;
+          const codeId = `gc-code-${rd.id}`;
+          html += `
+            <div class="gc-code" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+              <span style="flex:1;word-break:break-all">${rd.giftCardCode}</span>
+              <button class="gc-copy-btn" data-code="${rd.giftCardCode}" data-id="${codeId}" title="Copy code"
+                style="flex-shrink:0;background:#d1fae5;border:1px solid #6ee7b7;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;color:#065f46;font-weight:600">
+                Copy
+              </button>
+            </div>`;
         }
         if (rd.status === 'PENDING') {
           html += `<div style="font-size:10px;color:#92400e;margin-top:3px">Our team will review and send you a gift card code soon.</div>`;
@@ -535,6 +659,15 @@ async function loadRewardsUI() {
         }
         item.innerHTML = html;
         rdList.appendChild(item);
+      }
+      for (const btn of rdList.querySelectorAll('.gc-copy-btn')) {
+        btn.addEventListener('click', (e) => {
+          const code = e.currentTarget.dataset.code;
+          navigator.clipboard.writeText(code).then(() => {
+            e.currentTarget.textContent = 'Copied!';
+            setTimeout(() => { e.currentTarget.textContent = 'Copy'; }, 2000);
+          });
+        });
       }
     } else {
       rdContainer.style.display = 'none';

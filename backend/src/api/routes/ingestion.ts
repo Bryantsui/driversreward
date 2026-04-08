@@ -6,6 +6,7 @@ import { submitTrip, submitActivityFeed } from '../../services/ingestion-service
 import { parseUberTripResponse } from '../../services/uber-parser.js';
 import { prisma } from '../../config/database.js';
 import { logger } from '../../config/logger.js';
+import { getSyncWindow } from '../../utils/sync-window.js';
 import type { Region } from '@prisma/client';
 
 const router = Router();
@@ -57,41 +58,60 @@ router.post('/raw-trips', async (req: Request, res: Response, next) => {
     const driverId = req.driver!.sub;
     const region = req.driver!.region as Region;
 
+    const { inWindow: windowEligible } = getSyncWindow(region);
+
     const results: Array<{
       tripUuid: string;
       status: 'created' | 'duplicate' | 'parse_error' | 'validation_error';
       pointsAwarded: number;
+      windowEligible: boolean;
       error?: string;
     }> = [];
 
-    for (const { rawBody, tripUuid: inputUuid } of input.trips) {
-      const parsed = parseUberTripResponse(rawBody, inputUuid || '');
+    // Pre-parse all trips to collect UUIDs for batch dedup
+    const parsedTrips = input.trips.map(({ rawBody, tripUuid: inputUuid }) => ({
+      rawBody,
+      parsed: parseUberTripResponse(rawBody, inputUuid || ''),
+    }));
+    const allUuids = parsedTrips
+      .map((t) => t.parsed?.tripUuid)
+      .filter((u): u is string => !!u);
 
+    // Batch dedup: fetch all existing trips for this driver in one query
+    const existingOwn = allUuids.length > 0
+      ? await prisma.trip.findMany({
+          where: { driverId, tripUuid: { in: allUuids } },
+          select: { tripUuid: true, pointsAwarded: true },
+        })
+      : [];
+    const ownDupeMap = new Map(existingOwn.map((t) => [t.tripUuid, t.pointsAwarded]));
+
+    // Batch cross-driver dedup
+    const remainingUuids = allUuids.filter((u) => !ownDupeMap.has(u));
+    const crossDriverDupes = remainingUuids.length > 0
+      ? await prisma.trip.findMany({
+          where: { tripUuid: { in: remainingUuids }, driverId: { not: driverId } },
+          select: { tripUuid: true, driverId: true },
+        })
+      : [];
+    const crossDupeSet = new Set(crossDriverDupes.map((t) => t.tripUuid));
+
+    for (const { rawBody, parsed } of parsedTrips) {
       if (!parsed) {
-        results.push({ tripUuid: '', status: 'parse_error', pointsAwarded: 0, error: 'Could not parse Uber response' });
+        results.push({ tripUuid: '', status: 'parse_error', pointsAwarded: 0, windowEligible, error: 'Could not parse Uber response' });
         continue;
       }
 
-      // Check for same-driver duplicate
-      const existing = await prisma.trip.findUnique({
-        where: { driverId_tripUuid: { driverId, tripUuid: parsed.tripUuid } },
-        select: { id: true, pointsAwarded: true },
-      });
-
-      if (existing) {
-        results.push({ tripUuid: parsed.tripUuid, status: 'duplicate', pointsAwarded: existing.pointsAwarded });
+      // Same-driver duplicate
+      if (ownDupeMap.has(parsed.tripUuid)) {
+        results.push({ tripUuid: parsed.tripUuid, status: 'duplicate', pointsAwarded: ownDupeMap.get(parsed.tripUuid) ?? 0, windowEligible });
         continue;
       }
 
-      // Cross-driver deduplication: same tripUuid submitted by a different account = fraud signal
-      const crossDriverDupe = await prisma.trip.findFirst({
-        where: { tripUuid: parsed.tripUuid, driverId: { not: driverId } },
-        select: { id: true, driverId: true },
-      });
-
-      if (crossDriverDupe) {
-        logger.warn({ tripUuid: parsed.tripUuid, driverId, otherDriverId: crossDriverDupe.driverId }, 'Cross-driver duplicate detected — possible fraud');
-        results.push({ tripUuid: parsed.tripUuid, status: 'validation_error', pointsAwarded: 0, error: 'This trip has already been submitted by another account' });
+      // Cross-driver fraud check
+      if (crossDupeSet.has(parsed.tripUuid)) {
+        logger.warn({ tripUuid: parsed.tripUuid, driverId }, 'Cross-driver duplicate detected — possible fraud');
+        results.push({ tripUuid: parsed.tripUuid, status: 'validation_error', pointsAwarded: 0, windowEligible, error: 'This trip has already been submitted by another account' });
         continue;
       }
 
@@ -100,19 +120,16 @@ router.post('/raw-trips', async (req: Request, res: Response, next) => {
       const now = new Date();
       const threeYearsAgo = new Date(now.getFullYear() - 3, now.getMonth(), now.getDate());
       if (requestedDate > now || requestedDate < threeYearsAgo) {
-        results.push({ tripUuid: parsed.tripUuid, status: 'validation_error', pointsAwarded: 0, error: 'Timestamp out of range' });
+        results.push({ tripUuid: parsed.tripUuid, status: 'validation_error', pointsAwarded: 0, windowEligible, error: 'Timestamp out of range' });
         continue;
       }
 
       try {
-        // Determine if trip qualifies for points:
-        // 1. Must be a "COMPLETED" trip (not cancelled)
-        // 2. Must have happened within the last 30 days
-        // 3. Must parse with sufficient confidence
         const isCancelled = parsed.statusType && parsed.statusType.toUpperCase().includes('CANCEL');
         const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         const isWithin30Days = requestedDate >= thirtyDaysAgo;
-        const isQualified = !isCancelled && isWithin30Days && parsed.parseConfidence !== 'low';
+        const { inWindow } = getSyncWindow(region);
+        const isQualified = !isCancelled && isWithin30Days && parsed.parseConfidence !== 'low' && inWindow;
 
         const pointsAwarded = isQualified ? 1 : 0;
 
@@ -204,11 +221,11 @@ router.post('/raw-trips', async (req: Request, res: Response, next) => {
           }
         });
 
-        results.push({ tripUuid: parsed.tripUuid, status: 'created', pointsAwarded });
-        logger.info({ driverId, tripUuid: parsed.tripUuid, pointsAwarded }, 'Raw trip ingested');
+        results.push({ tripUuid: parsed.tripUuid, status: 'created', pointsAwarded, windowEligible });
+        logger.info({ driverId, tripUuid: parsed.tripUuid, pointsAwarded, windowEligible }, 'Raw trip ingested');
       } catch (err: any) {
         logger.error({ err, tripUuid: parsed.tripUuid }, 'Failed to store trip');
-        results.push({ tripUuid: parsed.tripUuid, status: 'validation_error', pointsAwarded: 0, error: err.message });
+        results.push({ tripUuid: parsed.tripUuid, status: 'validation_error', pointsAwarded: 0, windowEligible, error: err.message });
       }
     }
 
@@ -221,6 +238,7 @@ router.post('/raw-trips', async (req: Request, res: Response, next) => {
       duplicates: results.filter((r) => r.status === 'duplicate').length,
       errors: results.filter((r) => r.status === 'parse_error' || r.status === 'validation_error').length,
       totalPointsAwarded: totalPoints,
+      windowEligible,
       results,
     });
   } catch (err) {
