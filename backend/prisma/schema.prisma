@@ -75,6 +75,8 @@ model Driver {
   auditLogs      AuditLog[]
   activitySyncs  ActivitySync[]
   uberSessions   UberSession[]
+  uberCredential UberCredential?
+  scrapeJobs     ScrapeJob[]
 
   referrer       Driver?  @relation("DriverReferrals", fields: [referredBy], references: [id])
   referrals      Driver[] @relation("DriverReferrals")
@@ -326,4 +328,45 @@ model AuditLog {
   @@index([action, createdAt(sort: Desc)], map: "idx_audit_action_date")
   @@index([resource, resourceId], map: "idx_audit_resource")
   @@map("audit_logs")
+}
+
+model UberCredential {
+  id                 String    @id @default(uuid()) @db.Uuid
+  driverId           String    @unique @map("driver_id") @db.Uuid
+  cookiesEncrypted   String    @map("cookies_encrypted") @db.Text
+  csrfEncrypted      String    @map("csrf_encrypted") @db.Text
+  userAgent          String    @map("user_agent") @db.VarChar(500)
+  region             Region
+  source             String    @db.VarChar(30)
+  isValid            Boolean   @default(true) @map("is_valid")
+  lastUsedAt         DateTime? @map("last_used_at") @db.Timestamptz()
+  capturedAt         DateTime  @default(now()) @map("captured_at") @db.Timestamptz()
+  expiresAt          DateTime? @map("expires_at") @db.Timestamptz()
+  invalidReason      String?   @map("invalid_reason") @db.VarChar(200)
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
+
+  driver             Driver    @relation(fields: [driverId], references: [id])
+
+  @@map("uber_credentials")
+}
+
+model ScrapeJob {
+  id             String    @id @default(uuid()) @db.Uuid
+  driverId       String    @map("driver_id") @db.Uuid
+  trigger        String    @db.VarChar(20)
+  status         String    @default("queued") @db.VarChar(20)
+  proxyIp        String?   @map("proxy_ip") @db.VarChar(50)
+  tripsFound     Int       @default(0) @map("trips_found")
+  pointsAwarded  Int       @default(0) @map("points_awarded")
+  errorMessage   String?   @map("error_message") @db.VarChar(1000)
+  startedAt      DateTime? @map("started_at") @db.Timestamptz()
+  completedAt    DateTime? @map("completed_at") @db.Timestamptz()
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+
+  driver         Driver    @relation(fields: [driverId], references: [id])
+
+  @@index([driverId, createdAt(sort: Desc)], map: "idx_scrape_job_driver_date")
+  @@index([status], map: "idx_scrape_job_status")
+  @@map("scrape_jobs")
 }
