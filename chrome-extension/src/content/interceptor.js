@@ -12,7 +12,7 @@
 
     if (type === 'UBER_TRIP_CAPTURED' || type === 'UBER_ACTIVITY_FEED_CAPTURED') {
       chrome.runtime.sendMessage({ type, rawBody: body, url });
-    } else if (type === 'UBER_LOGIN_STATE' || type === 'PROGRESS_UPDATE' || type === 'AUTO_FETCH_COMPLETE') {
+    } else if (type === 'UBER_LOGIN_STATE' || type === 'PROGRESS_UPDATE' || type === 'AUTO_FETCH_COMPLETE' || type === 'UBER_CSRF_CAPTURED') {
       chrome.runtime.sendMessage({ type, rawBody: body, url });
     }
   });

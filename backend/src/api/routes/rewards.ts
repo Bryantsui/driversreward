@@ -6,6 +6,7 @@ import {
   redeemGiftCard,
   getDriverRedemptions,
 } from '../../services/redemption-service.js';
+import { getSyncWindow } from '../../utils/sync-window.js';
 import type { Region } from '@prisma/client';
 
 const router = Router();
@@ -14,8 +15,11 @@ router.use(authenticate);
 
 router.get('/balance', async (req: Request, res: Response, next) => {
   try {
+    const driverId = req.driver!.sub;
+    const region = req.driver!.region as Region;
+
     const driver = await prisma.driver.findUniqueOrThrow({
-      where: { id: req.driver!.sub },
+      where: { id: driverId },
       select: {
         pointsBalance: true,
         lifetimePoints: true,
@@ -23,7 +27,45 @@ router.get('/balance', async (req: Request, res: Response, next) => {
       },
     });
 
-    res.json(driver);
+    // Monthly breakdown: last 6 months of trip_earn points
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    sixMonthsAgo.setDate(1);
+    sixMonthsAgo.setHours(0, 0, 0, 0);
+
+    const ledgerEntries = await prisma.pointLedger.findMany({
+      where: {
+        driverId,
+        type: 'trip_earn',
+        amount: { gt: 0 },
+        createdAt: { gte: sixMonthsAgo },
+      },
+      select: { amount: true, createdAt: true },
+    });
+
+    const monthMap = new Map<string, number>();
+    for (const entry of ledgerEntries) {
+      const d = entry.createdAt;
+      const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+      monthMap.set(key, (monthMap.get(key) ?? 0) + entry.amount);
+    }
+
+    const now = new Date();
+    const currentMonthKey = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+    const monthToDate = monthMap.get(currentMonthKey) ?? 0;
+
+    const monthlyBreakdown = Array.from(monthMap.entries())
+      .map(([month, earned]) => ({ month, earned }))
+      .sort((a, b) => b.month.localeCompare(a.month));
+
+    const syncWindow = getSyncWindow(region);
+
+    res.json({
+      ...driver,
+      monthToDate,
+      monthlyBreakdown,
+      syncWindow,
+    });
   } catch (err) {
     next(err);
   }

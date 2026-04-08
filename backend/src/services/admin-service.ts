@@ -582,3 +582,45 @@ export async function adminResetDriverPassword(
   logger.info({ driverEmail, adminId }, 'Admin force-reset driver password');
   return { message: `Password reset for ${driverEmail}` };
 }
+
+export async function getScrapeJobsList(filters: { status?: string; page: number; limit: number }) {
+  const where: any = {};
+  if (filters.status) where.status = filters.status;
+
+  const [jobs, total] = await Promise.all([
+    prisma.scrapeJob.findMany({
+      where,
+      include: {
+        driver: { select: { id: true, email: true, region: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      skip: (filters.page - 1) * filters.limit,
+      take: filters.limit,
+    }),
+    prisma.scrapeJob.count({ where }),
+  ]);
+
+  return { jobs, total, page: filters.page, limit: filters.limit };
+}
+
+export async function getCredentialHealth() {
+  const credentials = await prisma.uberCredential.findMany({
+    include: {
+      driver: { select: { id: true, email: true, region: true } },
+    },
+    orderBy: { capturedAt: 'desc' },
+  });
+
+  return credentials.map((c) => ({
+    id: c.id,
+    driverId: c.driverId,
+    driverEmail: c.driver.email,
+    region: c.region,
+    source: c.source,
+    isValid: c.isValid,
+    invalidReason: c.invalidReason,
+    capturedAt: c.capturedAt,
+    expiresAt: c.expiresAt,
+    lastUsedAt: c.lastUsedAt,
+  }));
+}

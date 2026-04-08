@@ -15,6 +15,8 @@ import { rewardsRouter } from './api/routes/rewards.js';
 import { driverRouter } from './api/routes/driver.js';
 import { adminRouter } from './api/routes/admin.js';
 import { sessionRouter } from './api/routes/session.js';
+import { startScrapeWorker } from './workers/scrape-worker.js';
+import { startScheduler } from './jobs/scrape-scheduler.js';
 
 const app = express();
 
@@ -113,6 +115,14 @@ app.use(errorHandler);
 const server = env.NODE_ENV !== 'test'
   ? app.listen(env.PORT, () => {
       logger.info({ port: env.PORT, env: env.NODE_ENV }, 'Server started');
+
+      // Start background services
+      try {
+        startScrapeWorker();
+        startScheduler();
+      } catch (e) {
+        logger.error({ err: e }, 'Failed to start background services (non-fatal)');
+      }
     })
   : null;
 

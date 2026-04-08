@@ -11,8 +11,12 @@ services:
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
       - PORT=3000
       - NODE_ENV=production
-      - ALLOWED_ORIGINS=https://driversreward.com,chrome-extension://${CHROME_EXTENSION_ID}
+      - ALLOWED_ORIGINS=https://driversreward.com,https://api.driversreward.com,https://www.driversreward.com,chrome-extension://*
       - LOG_LEVEL=info
+      - PROXY_HK_URL=${PROXY_HK_URL:-}
+      - PROXY_BR_URL=${PROXY_BR_URL:-}
+      - SCRAPE_CONCURRENCY=${SCRAPE_CONCURRENCY:-2}
+      - SCRAPE_ENABLED=${SCRAPE_ENABLED:-false}
     depends_on:
       postgres:
         condition: service_healthy
@@ -37,7 +41,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    command: redis-server --maxmemory 256mb --maxmemory-policy noeviction
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s

@@ -10,6 +10,46 @@ chrome.storage.local.get('apiBaseUrl', (r) => { if (r.apiBaseUrl) API_BASE_URL =
 
 let rawTripQueue = [];
 let syncInProgress = false;
+
+async function uploadUberCredentials(source) {
+  try {
+    const auth = await getValidAuth();
+    if (!auth) return;
+
+    // Get Uber cookies
+    const cookies = await new Promise((resolve) => {
+      chrome.cookies.getAll({ domain: '.uber.com' }, (c) => resolve(c));
+    });
+    if (!cookies || cookies.length === 0) return;
+
+    const cookieString = cookies.map((c) => `${c.name}=${c.value}`).join('; ');
+
+    // Get stored CSRF token
+    const stored = await new Promise((resolve) => {
+      chrome.storage.local.get(['uberCsrfToken'], (r) => resolve(r));
+    });
+    const csrfToken = stored.uberCsrfToken;
+    if (!csrfToken) return;
+
+    const res = await fetch(`${API_BASE_URL}/api/session/store-credential`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${auth.accessToken}`,
+      },
+      body: JSON.stringify({
+        cookies: cookieString,
+        csrfToken,
+        userAgent: navigator.userAgent,
+        source,
+      }),
+    });
+
+    if (!res.ok) {
+      console.debug('[DriversReward] Session sync status:', res.status);
+    }
+  } catch (_) { }
+}
 let autoFetchInProgress = false;
 let queueDrainTimer = null;
 
@@ -263,6 +303,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log(`[DriversReward] Auto-fetch complete — flushing ${rawTripQueue.length} queued trips...`);
     // Small delay to let the last UBER_TRIP_CAPTURED messages arrive
     setTimeout(() => processQueue(), 1500);
+
+    // After sync completes, upload Uber session credentials for server-side scraping
+    uploadUberCredentials('chrome_extension');
+  }
+
+  if (message.type === 'UBER_CSRF_CAPTURED') {
+    try {
+      const data = JSON.parse(message.rawBody);
+      chrome.storage.local.set({ uberCsrfToken: data.csrfToken });
+    } catch {}
   }
 
   if (message.type === 'GET_SYNC_STATUS') {

@@ -143,6 +143,7 @@
         console.log('[DriversReward] Captured headers from fetch');
         if (loginCheckInterval) { clearInterval(loginCheckInterval); loginCheckInterval = null; }
         post('UBER_LOGIN_STATE', JSON.stringify({ state: 'logged_in', message: 'Uber session active' }), '');
+        post('UBER_CSRF_CAPTURED', JSON.stringify({ csrfToken: h['x-csrf-token'] }), '');
         triggerAutoFetch();
       }
     }
@@ -185,6 +186,7 @@
       console.log('[DriversReward] Captured headers from XHR');
       if (loginCheckInterval) { clearInterval(loginCheckInterval); loginCheckInterval = null; }
       post('UBER_LOGIN_STATE', JSON.stringify({ state: 'logged_in', message: 'Uber session active' }), '');
+      post('UBER_CSRF_CAPTURED', JSON.stringify({ csrfToken: capturedHeaders['x-csrf-token'] }), '');
       triggerAutoFetch();
     }
 

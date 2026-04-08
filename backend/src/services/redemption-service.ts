@@ -130,8 +130,18 @@ export async function getDriverRedemptions(driverId: string, page: number = 1, l
   ]);
 
   const mapped = redemptions.map((r) => ({
-    ...r,
+    id: r.id,
+    giftCardName: r.giftCard.name,
+    giftCardProvider: r.giftCard.provider,
+    faceValue: r.giftCard.faceValue,
+    currency: r.giftCard.currency,
+    pointsSpent: r.pointsSpent,
+    status: r.status,
     giftCardCode: r.status === 'FULFILLED' ? r.giftCardCode : null,
+    failureReason: r.failureReason,
+    createdAt: r.createdAt,
+    fulfilledAt: r.fulfilledAt,
+    giftCard: r.giftCard,
   }));
 
   return { redemptions: mapped, total, page, limit };

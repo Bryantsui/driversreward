@@ -18,6 +18,8 @@ import {
   cancelRedemption,
   getGiftCardList,
   adminResetDriverPassword,
+  getScrapeJobsList,
+  getCredentialHealth,
 } from '../../services/admin-service.js';
 import type { Region, TripReviewStatus } from '@prisma/client';
 
@@ -424,5 +426,28 @@ router.post(
     }
   },
 );
+
+// ═══════════════ SCRAPE MONITORING ═══════════════
+
+router.get('/scrape-jobs', authenticateAdmin, async (req: Request, res: Response, next) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(100, parseInt(req.query.limit as string) || 20);
+    const status = req.query.status as string | undefined;
+    const result = await getScrapeJobsList({ status, page, limit });
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/credential-health', authenticateAdmin, async (req: Request, res: Response, next) => {
+  try {
+    const credentials = await getCredentialHealth();
+    res.json({ credentials });
+  } catch (err) {
+    next(err);
+  }
+});
 
 export { router as adminRouter };

@@ -3,6 +3,7 @@ import { prisma } from '../config/database.js';
 import { calculateTripPoints } from './points-engine.js';
 import { logger } from '../config/logger.js';
 import { AppError } from '../api/middleware/error-handler.js';
+import { getSyncWindow } from '../utils/sync-window.js';
 import type { SubmitTripInput, SubmitActivityFeedInput } from '../api/validators/ingestion.js';
 import type { Region } from '@prisma/client';
 
@@ -65,12 +66,14 @@ export async function submitTrip(
     return { tripId: existing.id, pointsAwarded: existing.pointsAwarded, isDuplicate: true };
   }
 
-  const pointsAwarded = calculateTripPoints({
+  const { inWindow } = getSyncWindow(region);
+  const basePoints = calculateTripPoints({
     netEarnings: new Decimal(input.netEarnings),
     region,
     isSurge: input.isSurge,
     vehicleType: input.vehicleType ?? null,
   });
+  const pointsAwarded = inWindow ? basePoints : 0;
 
   const trip = await prisma.$transaction(async (tx) => {
     const t = await tx.trip.create({
