@@ -76,6 +76,7 @@ class DashboardViewModel @Inject constructor(
                 val b = balanceRes.body()
 
                 var driverName = ""
+                var driverPhone = ""
                 var driverEmail = ""
                 var driverRegion = ""
                 var memberSince = ""
@@ -85,6 +86,7 @@ class DashboardViewModel @Inject constructor(
                     if (profileRes.isSuccessful) {
                         val p = profileRes.body()
                         driverName = p?.name ?: ""
+                        driverPhone = p?.phone ?: ""
                         driverEmail = p?.email ?: ""
                         driverRegion = p?.region ?: ""
                         memberSince = p?.createdAt ?: ""
@@ -105,6 +107,7 @@ class DashboardViewModel @Inject constructor(
                         syncWindow = b?.syncWindow,
                         referralCode = b?.referralCode ?: profileReferral,
                         driverName = driverName,
+                        driverPhone = driverPhone,
                         driverEmail = driverEmail,
                         driverRegion = driverRegion,
                         memberSince = memberSince,
@@ -145,7 +148,7 @@ data class DashboardUiState(
     val referralCode: String = "",
     val monthlyBreakdown: List<MonthlyEarning> = emptyList(),
     val syncWindow: SyncWindowResponse? = null,
-    val driverName: String = "", val driverEmail: String = "", val driverRegion: String = "", val memberSince: String = "",
+    val driverName: String = "", val driverPhone: String = "", val driverEmail: String = "", val driverRegion: String = "", val memberSince: String = "",
     val giftCards: List<GiftCardItem> = emptyList(), val redemptions: List<RedemptionItem> = emptyList(),
     val error: String? = null, val redeemSuccess: String? = null
 )
@@ -419,6 +422,8 @@ fun ProfileTab(s: DashboardUiState, padding: PaddingValues, onLogout: () -> Unit
                     ProfileRow("Name", s.driverName)
                     HorizontalDivider(color = Gray100, modifier = Modifier.padding(vertical = 12.dp))
                 }
+                ProfileRow("Phone", s.driverPhone.ifEmpty { "\u2014" })
+                HorizontalDivider(color = Gray100, modifier = Modifier.padding(vertical = 12.dp))
                 ProfileRow("Email", s.driverEmail.ifEmpty { "\u2014" })
                 HorizontalDivider(color = Gray100, modifier = Modifier.padding(vertical = 12.dp))
                 ProfileRow("Region", when (s.driverRegion) { "HK" -> "Hong Kong \uD83C\uDDED\uD83C\uDDF0"; "BR" -> "Brazil \uD83C\uDDE7\uD83C\uDDF7"; else -> s.driverRegion.ifEmpty { "\u2014" } })

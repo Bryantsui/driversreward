@@ -48,6 +48,18 @@ class WebViewViewModel @Inject constructor(
     private val submittedFeedKeys = mutableSetOf<String>()
     private var capturedCsrfToken: String? = null
 
+    fun resetState() {
+        _uiState.value = WebViewUiState()
+        rawTripQueue.clear()
+        seenUrls.clear()
+        submittedFeedKeys.clear()
+        autoFetchStarted = false
+        capturedCsrfToken = null
+        Log.d(TAG, "ViewModel state reset")
+    }
+
+    private var autoFetchStarted = false
+
     fun onTripCaptured(rawBody: String, url: String) {
         viewModelScope.launch {
             try {
@@ -78,6 +90,10 @@ class WebViewViewModel @Inject constructor(
                 rawTripQueue.add(RawTripItem(rawBody = rawBody, tripUuid = tripUuid, url = url))
                 Log.d(TAG, "onTripCaptured: queued trip $tripUuid (queue=${rawTripQueue.size}, body=${rawBody.length} bytes)")
 
+                if (!_uiState.value.isSyncing) {
+                    _uiState.update { it.copy(isSyncing = true) }
+                }
+
                 if (rawTripQueue.size >= 20) {
                     flushRawTrips()
                 }
@@ -101,15 +117,22 @@ class WebViewViewModel @Inject constructor(
                 }
                 if (key != "|") submittedFeedKeys.add(key)
                 tripRepository.submitActivityFeed(rawJson)
-            } catch (_: Exception) { }
+            } catch (e: Exception) {
+                Log.w(TAG, "onActivityFeedCaptured error: ${e.message}")
+            }
         }
     }
 
     fun onLoginState(state: String, message: String) {
+        Log.d(TAG, "onLoginState: $state - $message")
         _uiState.update { it.copy(loginState = state, loginMessage = message) }
+        if (state == "logged_in" && _uiState.value.syncStep == null) {
+            _uiState.update { it.copy(isSyncing = true) }
+        }
     }
 
     fun onProgressUpdate(step: String, message: String, progress: Int, total: Int) {
+        Log.d(TAG, "onProgressUpdate: step=$step msg=$message progress=$progress/$total")
         _uiState.update {
             it.copy(
                 syncStep = step,
@@ -212,6 +235,6 @@ class WebViewViewModel @Inject constructor(
 
     override fun onCleared() {
         super.onCleared()
-        viewModelScope.launch { flushRawTrips() }
+        viewModelScope.launch(kotlinx.coroutines.NonCancellable) { flushRawTrips() }
     }
 }

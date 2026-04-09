@@ -1,48 +1,54 @@
 package com.driversreward.app.ui.screens
 
 import android.annotation.SuppressLint
+import android.app.Dialog
 import android.graphics.Bitmap
+import android.os.Bundle
 import android.util.Log
+import android.view.ViewGroup
+import android.view.Window
+import android.view.WindowManager
 import android.webkit.*
 import com.driversreward.app.BuildConfig
-import androidx.compose.animation.*
+import com.driversreward.app.R
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.setViewTreeLifecycleOwner
+import androidx.savedstate.findViewTreeSavedStateRegistryOwner
+import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.driversreward.app.ui.theme.*
-import com.google.gson.Gson
 import kotlinx.coroutines.delay
 import java.io.InputStreamReader
 
 private const val TAG = "DriversReward"
-
-private data class InterceptorMessage(
-    val source: String? = null,
-    val type: String = "",
-    val body: String = "",
-    val url: String? = null
-)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @SuppressLint("SetJavaScriptEnabled")
@@ -53,6 +59,7 @@ fun WebViewScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
 
     val interceptorScript = remember {
         try {
@@ -93,13 +100,122 @@ fun WebViewScreen(
         """.trimIndent()
     }
 
-    var isStatusExpanded by remember { mutableStateOf(true) }
     val isComplete = uiState.syncStep == "complete"
+    var showOverlay by remember { mutableStateOf(false) }
+    var captchaInterrupted by remember { mutableStateOf(false) }
+    val webViewRef = remember { mutableStateOf<WebView?>(null) }
 
+    // Reset ViewModel state each time the screen is entered
+    LaunchedEffect(Unit) {
+        viewModel.resetState()
+    }
+
+    // Show overlay as soon as we detect login (before auto-fetch starts)
+    LaunchedEffect(uiState.loginState) {
+        if (uiState.loginState == "logged_in" && !showOverlay && !captchaInterrupted) {
+            Log.d(TAG, "Login detected — showing overlay immediately")
+            showOverlay = true
+            captchaInterrupted = false
+        }
+    }
+
+    LaunchedEffect(uiState.syncStep) {
+        if (uiState.syncStep != null && uiState.syncStep != "complete" && !showOverlay && !captchaInterrupted) {
+            showOverlay = true
+        }
+    }
+
+    // Stuck detection: if overlay is shown but no progress change for 30s, dismiss
+    LaunchedEffect(showOverlay, uiState.syncStep, uiState.syncProgress) {
+        if (showOverlay && uiState.syncStep != "complete") {
+            val snapshotStep = uiState.syncStep
+            val snapshotProg = uiState.syncProgress
+            delay(30_000)
+            if (showOverlay && uiState.syncStep == snapshotStep && uiState.syncProgress == snapshotProg
+                && uiState.syncStep != "complete") {
+                Log.w(TAG, "Sync appears stuck (no progress for 30s) — dismissing overlay")
+                showOverlay = false
+            }
+        }
+    }
+
+    // On completion: navigate back to home (dialog cleaned up by DisposableEffect)
     LaunchedEffect(isComplete) {
         if (isComplete) {
-            delay(5000)
-            isStatusExpanded = false
+            delay(2500)
+            onNavigateBack()
+        }
+    }
+
+    // Captcha/challenge detection: if URL changes to auth page while syncing, pause overlay
+    fun onUrlChanged(url: String) {
+        val isChallenge = url.contains("/challenge") || url.contains("/auth/") ||
+                url.contains("/login") || url.contains("auth.uber.com")
+        if (isChallenge && showOverlay) {
+            Log.w(TAG, "Challenge/captcha detected during sync — pausing overlay")
+            showOverlay = false
+            captchaInterrupted = true
+            webViewRef.value?.visibility = android.view.View.VISIBLE
+        }
+    }
+
+    // Cancel handler: user explicitly stops sync
+    val onCancelSync: () -> Unit = {
+        Log.d(TAG, "User cancelled sync")
+        showOverlay = false
+        onNavigateBack()
+    }
+
+    // Native Android Dialog overlay
+    val dialogRef = remember { mutableStateOf<Dialog?>(null) }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            dialogRef.value?.dismiss()
+            webViewRef.value?.apply {
+                stopLoading()
+                destroy()
+            }
+            webViewRef.value = null
+        }
+    }
+
+    LaunchedEffect(showOverlay) {
+        Log.d(TAG, "LaunchedEffect showOverlay=$showOverlay")
+        if (showOverlay && dialogRef.value == null) {
+            val activity = context as? android.app.Activity ?: return@LaunchedEffect
+            val dialog = Dialog(activity, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+            dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+            dialog.setCancelable(false)
+
+            val composeView = ComposeView(activity).apply {
+                setViewTreeLifecycleOwner(lifecycleOwner)
+                activity.window?.decorView?.let { rootView ->
+                    rootView.findViewTreeSavedStateRegistryOwner()?.let {
+                        setViewTreeSavedStateRegistryOwner(it)
+                    }
+                }
+            }
+
+            dialog.setContentView(composeView)
+            dialog.window?.apply {
+                setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+                setBackgroundDrawableResource(android.R.color.transparent)
+                addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
+            }
+
+            composeView.setContent {
+                val currentState by viewModel.uiState.collectAsState()
+                SyncOverlayContent(uiState = currentState, onCancel = onCancelSync)
+            }
+
+            dialog.show()
+            dialogRef.value = dialog
+            Log.d(TAG, "Dialog shown!")
+        } else if (!showOverlay && dialogRef.value != null) {
+            dialogRef.value?.dismiss()
+            dialogRef.value = null
+            Log.d(TAG, "Dialog dismissed!")
         }
     }
 
@@ -118,328 +234,372 @@ fun WebViewScreen(
             )
         )
 
-        Box(modifier = Modifier.weight(1f)) {
-            AndroidView(
-                modifier = Modifier.fillMaxSize(),
-                factory = { ctx ->
-                    val cookieManager = CookieManager.getInstance()
-                    cookieManager.setAcceptCookie(true)
-                    if (BuildConfig.DEBUG) {
-                        WebView.setWebContentsDebuggingEnabled(true)
-                    }
-
-                    WebView(ctx).apply {
-                        cookieManager.setAcceptThirdPartyCookies(this, true)
-
-                        settings.apply {
-                            javaScriptEnabled = true
-                            domStorageEnabled = true
-                            databaseEnabled = true
-                            cacheMode = WebSettings.LOAD_DEFAULT
-                            setSupportMultipleWindows(false)
-                            loadWithOverviewMode = true
-                            useWideViewPort = true
-                            mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
-                            userAgentString = userAgentString
-                                .replace("; wv)", ")")
-                                .replace("Version/\\S+\\s*".toRegex(), "")
-                        }
-
-                        addJavascriptInterface(PostMessageBridge(viewModel), "DriversRewardBridge")
-
-                        webChromeClient = object : WebChromeClient() {
-                            override fun onConsoleMessage(msg: ConsoleMessage?): Boolean {
-                                msg?.let { Log.d(TAG, "JS [${it.sourceId()}:${it.lineNumber()}] ${it.message()}") }
-                                return true
-                            }
-                        }
-
-                        webViewClient = object : WebViewClient() {
-                            override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
-                                super.onPageStarted(view, url, favicon)
-                                if (url?.contains("drivers.uber.com") == true) {
-                                    view?.evaluateJavascript(earlyHook, null)
-                                }
-                            }
-
-                            override fun onPageFinished(view: WebView?, url: String?) {
-                                super.onPageFinished(view, url)
-                                cookieManager.flush()
-                                if (url?.contains("drivers.uber.com") == true &&
-                                    !url.contains("/auth/") && !url.contains("/login")) {
-                                    view?.evaluateJavascript(interceptorScript, null)
-                                    view?.evaluateJavascript(POSTMESSAGE_ADAPTER, null)
-                                }
-                            }
-
-                            override fun shouldOverrideUrlLoading(
-                                view: WebView?, request: WebResourceRequest?
-                            ): Boolean = false
-                        }
-
-                        loadUrl("https://drivers.uber.com/")
-                    }
+        AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = { ctx ->
+                val cookieManager = CookieManager.getInstance()
+                cookieManager.setAcceptCookie(true)
+                if (BuildConfig.DEBUG) {
+                    WebView.setWebContentsDebuggingEnabled(true)
                 }
-            )
 
-            FloatingStatusCard(
-                uiState = uiState,
-                isExpanded = isStatusExpanded,
-                onToggle = { isStatusExpanded = !isStatusExpanded },
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .zIndex(10f)
-                    .padding(horizontal = 10.dp, vertical = 6.dp)
-            )
-        }
+                WebView(ctx).apply {
+                    webViewRef.value = this
+                    visibility = android.view.View.INVISIBLE
+                    cookieManager.setAcceptThirdPartyCookies(this, true)
+
+                    settings.apply {
+                        javaScriptEnabled = true
+                        domStorageEnabled = true
+                        @Suppress("DEPRECATION")
+                        databaseEnabled = true
+                        cacheMode = WebSettings.LOAD_DEFAULT
+                        setSupportMultipleWindows(false)
+                        loadWithOverviewMode = true
+                        useWideViewPort = true
+                        mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+                        userAgentString = userAgentString
+                            .replace("; wv)", ")")
+                            .replace("Version/\\S+\\s*".toRegex(), "")
+                    }
+
+                    addJavascriptInterface(PostMessageBridge(viewModel), "DriversRewardBridge")
+
+                    webChromeClient = object : WebChromeClient() {
+                        override fun onConsoleMessage(msg: ConsoleMessage?): Boolean {
+                            msg?.let { Log.d(TAG, "JS [${it.sourceId()}:${it.lineNumber()}] ${it.message()}") }
+                            return true
+                        }
+                    }
+
+                    webViewClient = object : WebViewClient() {
+                        override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                            super.onPageStarted(view, url, favicon)
+                            if (url != null) onUrlChanged(url)
+                            if (url?.contains("drivers.uber.com") == true) {
+                                view?.evaluateJavascript(earlyHook, null)
+                            }
+                        }
+
+                        override fun onPageFinished(view: WebView?, url: String?) {
+                            super.onPageFinished(view, url)
+                            cookieManager.flush()
+
+                            val isAuthPage = url?.contains("/auth/") == true ||
+                                    url?.contains("/login") == true ||
+                                    url?.contains("/challenge") == true ||
+                                    url?.contains("auth.uber.com") == true
+                            if (isAuthPage) {
+                                view?.visibility = android.view.View.VISIBLE
+                            }
+
+                            if (url?.contains("drivers.uber.com") == true && !isAuthPage) {
+                                view?.evaluateJavascript(POSTMESSAGE_ADAPTER, null)
+                                view?.evaluateJavascript(interceptorScript, null)
+                            }
+                        }
+
+                        override fun shouldOverrideUrlLoading(
+                            view: WebView?, request: WebResourceRequest?
+                        ): Boolean {
+                            val host = request?.url?.host ?: return true
+                            val allowed = host.endsWith("uber.com") || host.endsWith("uber.org")
+                            if (!allowed) {
+                                Log.w(TAG, "Blocked navigation to untrusted host: $host")
+                            }
+                            return !allowed
+                        }
+                    }
+
+                    loadUrl("https://drivers.uber.com/")
+                }
+            }
+        )
     }
 }
 
+
 @Composable
-fun FloatingStatusCard(
+fun SyncOverlayContent(
     uiState: WebViewUiState,
-    isExpanded: Boolean,
-    onToggle: () -> Unit,
-    modifier: Modifier = Modifier
+    onCancel: () -> Unit = {}
 ) {
     val step = uiState.syncStep
-    val login = uiState.loginState
+    val isComplete = step == "complete"
+    var showCancelConfirm by remember { mutableStateOf(false) }
 
-    val s1 = when {
-        login == "logged_in" || step != null -> "done"
-        login == "checking" -> "active"
-        else -> ""
-    }
-    val s2 = when {
-        step == "starting" || step == "fetching_history" -> "active"
-        step == "fetching_details" || step == "submitting" || step == "complete" -> "done"
-        else -> ""
-    }
-    val s3 = when {
-        step == "fetching_details" -> "active"
-        step == "submitting" || step == "complete" -> "done"
-        else -> ""
-    }
-    val s4 = when {
-        step == "submitting" -> "active"
-        step == "complete" -> "done"
-        else -> ""
+    val currentStepIndex = when (step) {
+        "starting", "fetching_history" -> 1
+        "fetching_details" -> 2
+        "submitting" -> 3
+        "complete" -> 4
+        else -> if (uiState.isSyncing) 1 else 0
     }
 
-    val progressPct = when {
-        step == "fetching_history" && uiState.syncTotal > 0 -> uiState.syncProgress.toFloat() / uiState.syncTotal
-        step == "fetching_details" && uiState.syncTotal > 0 -> uiState.syncProgress.toFloat() / uiState.syncTotal
-        step == "submitting" -> 0.9f
+    val progressFraction = when {
+        step == "fetching_history" && uiState.syncTotal > 0 ->
+            uiState.syncProgress.toFloat() / uiState.syncTotal
+        step == "fetching_details" && uiState.syncTotal > 0 ->
+            uiState.syncProgress.toFloat() / uiState.syncTotal
+        step == "submitting" -> 0.85f
         step == "complete" -> 1f
+        uiState.isSyncing -> 0.1f
         else -> 0f
     }
 
-    val detailText = when {
-        login == "logged_out" || login == "unknown" -> "Log in to Uber below to begin."
-        login == "checking" && step == null -> "Verifying your Uber session..."
-        step == "starting" || step == "fetching_history" -> uiState.syncMessage ?: "Scanning trip history..."
-        step == "fetching_details" -> uiState.syncMessage ?: "Fetching trip details..."
-        step == "submitting" -> uiState.syncMessage ?: "Sending data to server..."
-        step == "complete" -> "All done! Your points have been updated."
-        login == "logged_in" && step == null -> "Uber session verified. Preparing data collection..."
-        else -> ""
-    }
-
-    val showBar = step != null || login == "checking"
-    val isActive = step != null && step != "complete"
-
-    val headerBg = when {
-        step == "complete" -> Emerald500
-        isActive -> Indigo600
-        login == "logged_in" -> Indigo600
-        else -> Gray600
-    }
-    val summaryText = when {
-        step == "complete" -> "Sync complete!"
-        step == "fetching_details" -> "Fetching ${uiState.syncProgress}/${uiState.syncTotal} trips..."
-        step == "fetching_history" -> "Scanning week ${uiState.syncProgress}/${uiState.syncTotal}..."
-        step == "submitting" -> "Sending to server..."
-        step == "starting" -> "Starting..."
-        login == "logged_in" -> "Preparing data collection..."
-        login == "checking" -> "Checking session..."
-        else -> "Waiting for login..."
-    }
-
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .shadow(8.dp, RoundedCornerShape(14.dp)),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = White)
-    ) {
-        Column {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(headerBg)
-                    .clickable(onClick = onToggle)
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                SessionDot(login)
-                Spacer(modifier = Modifier.width(10.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        "Data Collection",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = White
-                    )
-                    if (!isExpanded) {
-                        Text(summaryText, fontSize = 11.sp, color = White.copy(alpha = 0.8f))
-                    }
-                }
-                Icon(
-                    if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                    contentDescription = "Toggle",
-                    tint = White,
-                    modifier = Modifier.size(20.dp)
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = if (isComplete)
+                        listOf(Emerald500, Emerald600)
+                    else
+                        listOf(Color(0xFF312E81), Indigo700)
                 )
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp)
+        ) {
+            Box(
+                modifier = Modifier.size(120.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isComplete) {
+                    CompletionAnimation()
+                } else {
+                    ScanningAnimation(step = step, progress = progressFraction)
+                }
             }
 
-            AnimatedVisibility(visible = isExpanded) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    StepRow(1, "Log in to Uber Driver Portal", s1)
-                    StepRow(2, "Scan trip history", s2)
-                    StepRow(3, "Fetch trip details", s3)
-                    StepRow(4, "Sync to server & earn points", s4)
+            Spacer(modifier = Modifier.height(28.dp))
 
-                    if (showBar) {
-                        Spacer(modifier = Modifier.height(10.dp))
-                        LinearProgressIndicator(
-                            progress = { if (progressPct > 0f) progressPct else 0f },
-                            modifier = Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)),
-                            color = Indigo600,
-                            trackColor = Gray200,
+            val headline = when (step) {
+                "starting", "fetching_history" -> "Scanning Trip History"
+                "fetching_details" -> "Calculating Rewards"
+                "submitting" -> "Finalizing Point Balance"
+                "complete" -> "Points Updated!"
+                else -> if (uiState.isSyncing) "Scanning Trip History" else "Getting Ready..."
+            }
+
+            Text(headline, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = White, textAlign = TextAlign.Center)
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            val subtitle = when {
+                step == "fetching_history" -> "Reviewing your recent trips..."
+                step == "fetching_details" -> "Processing ${uiState.syncProgress} of ${uiState.syncTotal} trips"
+                step == "submitting" -> "Almost there..."
+                step == "complete" -> "Your reward points are up to date"
+                step == "starting" -> "Connecting to your account..."
+                uiState.isSyncing -> "Collecting your trip data..."
+                else -> "Connecting to Uber..."
+            }
+
+            Text(subtitle, fontSize = 14.sp, color = White.copy(alpha = 0.8f), textAlign = TextAlign.Center)
+
+            if (!isComplete) {
+                Spacer(modifier = Modifier.height(32.dp))
+                StepTimeline(currentStep = currentStepIndex)
+                Spacer(modifier = Modifier.height(24.dp))
+
+                if (progressFraction > 0f) {
+                    val animatedProgress by animateFloatAsState(
+                        targetValue = progressFraction,
+                        animationSpec = tween(400, easing = CubicBezierEasing(0.33f, 1f, 0.68f, 1f)),
+                        label = "progress"
+                    )
+                    Box(
+                        modifier = Modifier.fillMaxWidth().height(6.dp)
+                            .clip(RoundedCornerShape(3.dp))
+                            .background(White.copy(alpha = 0.2f))
+                    ) {
+                        Box(
+                            modifier = Modifier.fillMaxHeight()
+                                .fillMaxWidth(animatedProgress)
+                                .clip(RoundedCornerShape(3.dp))
+                                .background(Brush.horizontalGradient(listOf(White.copy(alpha = 0.7f), White)))
                         )
                     }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("${(progressFraction * 100).toInt()}%", fontSize = 12.sp, color = White.copy(alpha = 0.6f), fontWeight = FontWeight.Medium)
+                }
 
-                    if (detailText.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(detailText, fontSize = 11.sp, color = Gray400)
+                Spacer(modifier = Modifier.height(24.dp))
+
+                if (!showCancelConfirm) {
+                    TextButton(onClick = { showCancelConfirm = true }) {
+                        Text("Cancel", fontSize = 13.sp, color = White.copy(alpha = 0.5f))
                     }
-
-                    if (step == "complete") {
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            "Recent trips may take a few hours to appear in Uber\u2019s system.",
-                            fontSize = 10.sp,
-                            color = Gray400
-                        )
+                } else {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = White.copy(alpha = 0.15f)),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                "Interrupting may result in incomplete point calculation. Are you sure?",
+                                fontSize = 13.sp, color = White.copy(alpha = 0.9f),
+                                textAlign = TextAlign.Center, lineHeight = 18.sp
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                OutlinedButton(
+                                    onClick = { showCancelConfirm = false },
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = White),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.weight(1f)
+                                ) { Text("Continue", fontSize = 13.sp) }
+                                Button(
+                                    onClick = onCancel,
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color(0xFFEF4444),
+                                        contentColor = White
+                                    ),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.weight(1f)
+                                ) { Text("Stop", fontSize = 13.sp) }
+                            }
+                        }
                     }
                 }
+            } else {
+                Spacer(modifier = Modifier.height(20.dp))
+                Text("Returning to home...",
+                    fontSize = 12.sp, color = White.copy(alpha = 0.6f), textAlign = TextAlign.Center, lineHeight = 18.sp)
             }
         }
     }
 }
 
-@Composable
-fun StepRow(number: Int, label: String, state: String) {
-    val dotColor = when (state) {
-        "done" -> Emerald500
-        "active" -> Indigo600
-        "error" -> Rose500
-        else -> Gray200
-    }
-    val textColor = when (state) {
-        "active" -> Gray900
-        "done" -> Emerald500
-        "error" -> Rose500
-        else -> Gray400
-    }
-    val fontWeight = if (state == "active") FontWeight.Medium else FontWeight.Normal
-    val icon = when (state) {
-        "done" -> "\u2713"
-        "error" -> "\u2717"
-        else -> "$number"
-    }
 
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 3.dp)) {
+@Composable
+fun ScanningAnimation(step: String?, progress: Float) {
+    val inf = rememberInfiniteTransition(label = "scan")
+    val rotation by inf.animateFloat(0f, 360f, infiniteRepeatable(tween(2000, easing = LinearEasing)), label = "rot")
+    val pulse by inf.animateFloat(0.85f, 1.05f, infiniteRepeatable(tween(1200, easing = CubicBezierEasing(0.65f, 0f, 0.35f, 1f)), RepeatMode.Reverse), label = "pulse")
+
+    Box(Modifier.size(120.dp).scale(pulse), contentAlignment = Alignment.Center) {
+        Canvas(Modifier.size(120.dp).rotate(rotation)) {
+            drawArc(Color.White.copy(alpha = 0.3f), 0f, 270f, false, style = Stroke(3.dp.toPx(), cap = StrokeCap.Round))
+        }
+        Canvas(Modifier.size(100.dp).rotate(-rotation * 0.7f)) {
+            drawArc(Color.White.copy(alpha = 0.2f), 45f, 180f, false, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
+        }
+        Box(Modifier.size(72.dp).clip(CircleShape).background(White.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+            val emoji = when (step) {
+                "starting", "fetching_history" -> "\uD83D\uDD0D"
+                "fetching_details" -> "\uD83D\uDCB0"
+                "submitting" -> "\u2601\uFE0F"
+                else -> "\uD83D\uDD0D"
+            }
+            Text(emoji, fontSize = 36.sp)
+        }
+    }
+}
+
+
+@Composable
+fun CompletionAnimation() {
+    val scale = remember { Animatable(0f) }
+    val alpha = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        scale.animateTo(1f, spring(0.5f, 300f))
+        alpha.animateTo(1f, tween(400))
+    }
+    Box(Modifier.size(120.dp).scale(scale.value), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(100.dp).clip(CircleShape).background(White.copy(alpha = 0.2f)), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(72.dp).clip(CircleShape).background(White.copy(alpha = 0.25f)), contentAlignment = Alignment.Center) {
+                Text("\uD83C\uDF89", fontSize = 40.sp, modifier = Modifier.alpha(alpha.value))
+            }
+        }
+    }
+}
+
+
+@Composable
+fun StepTimeline(currentStep: Int) {
+    val steps = listOf("Scanning Trips", "Calculating Rewards", "Finalizing Balance")
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+        steps.forEachIndexed { i, label ->
+            val n = i + 1
+            val st = when { n < currentStep -> "done"; n == currentStep -> "active"; else -> "pending" }
+            StepDot(label, st)
+            if (i < steps.lastIndex) {
+                Box(Modifier.width(24.dp).height(2.dp)
+                    .background(if (n < currentStep) White.copy(alpha = 0.6f) else White.copy(alpha = 0.15f)))
+            }
+        }
+    }
+}
+
+
+@Composable
+fun StepDot(label: String, state: String) {
+    val inf = rememberInfiniteTransition(label = "dot")
+    val pulse by inf.animateFloat(1f, 1.15f, infiniteRepeatable(tween(800, easing = CubicBezierEasing(0.65f, 0f, 0.35f, 1f)), RepeatMode.Reverse), label = "dp")
+
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(80.dp)) {
         Box(
-            modifier = Modifier.size(20.dp).clip(CircleShape).background(dotColor),
+            Modifier.size(if (state == "active") 32.dp else 26.dp)
+                .scale(if (state == "active") pulse else 1f)
+                .clip(CircleShape)
+                .background(when (state) { "done" -> White.copy(0.9f); "active" -> White; else -> White.copy(0.15f) }),
             contentAlignment = Alignment.Center
         ) {
-            if (state == "active") {
-                val infiniteTransition = rememberInfiniteTransition(label = "spin")
-                @Suppress("UNUSED_VARIABLE")
-                val angle by infiniteTransition.animateFloat(
-                    initialValue = 0f, targetValue = 360f,
-                    animationSpec = infiniteRepeatable(tween(600, easing = LinearEasing)),
-                    label = "spin"
-                )
-                Text("\u21BB", fontSize = 10.sp, color = White)
-            } else {
-                Text(icon, fontSize = 10.sp, color = if (state.isEmpty()) Gray400 else White, fontWeight = FontWeight.Bold)
+            when (state) {
+                "done" -> Icon(Icons.Default.Check, null, tint = Emerald500, modifier = Modifier.size(16.dp))
+                "active" -> {
+                    val spin by inf.animateFloat(0f, 360f, infiniteRepeatable(tween(1000, easing = LinearEasing)), label = "sp")
+                    Text("\u21BB", fontSize = 14.sp, color = Indigo600, fontWeight = FontWeight.Bold, modifier = Modifier.rotate(spin))
+                }
             }
         }
-        Spacer(modifier = Modifier.width(10.dp))
-        Text(label, fontSize = 12.sp, color = textColor, fontWeight = fontWeight)
+        Spacer(Modifier.height(6.dp))
+        Text(label, fontSize = 10.sp, textAlign = TextAlign.Center, lineHeight = 13.sp,
+            color = when (state) { "done" -> White.copy(0.8f); "active" -> White; else -> White.copy(0.35f) },
+            fontWeight = if (state == "active") FontWeight.SemiBold else FontWeight.Normal)
     }
 }
 
-@Composable
-fun SessionDot(login: String) {
-    val dotColor = when (login) {
-        "logged_in" -> Emerald500
-        "checking" -> Sky500
-        "logged_out" -> Amber500
-        else -> Gray400
-    }
-    val text = when (login) {
-        "logged_in" -> "Uber session active"
-        "checking" -> "Checking Uber session..."
-        "logged_out" -> "Not logged in to Uber"
-        else -> "Waiting for Uber portal..."
-    }
-
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val alpha by infiniteTransition.animateFloat(
-        initialValue = 1f, targetValue = 0.4f,
-        animationSpec = infiniteRepeatable(tween(750, easing = LinearEasing), repeatMode = RepeatMode.Reverse),
-        label = "pulse"
-    )
-    val actualAlpha = if (login == "checking") alpha else 1f
-
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(dotColor.copy(alpha = actualAlpha)))
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(text, fontSize = 12.sp, color = Gray400)
-    }
-}
 
 private class PostMessageBridge(private val viewModel: WebViewViewModel) {
-    private val gson = Gson()
-
     @JavascriptInterface
     fun onMessage(messageJson: String) {
         try {
-            Log.d(TAG, "Bridge: ${messageJson.take(200)}")
-            val msg = gson.fromJson(messageJson, InterceptorMessage::class.java)
-            when (msg.type) {
-                "UBER_TRIP_CAPTURED" -> viewModel.onTripCaptured(msg.body, msg.url ?: "")
-                "UBER_ACTIVITY_FEED_CAPTURED" -> viewModel.onActivityFeedCaptured(msg.body)
+            if (BuildConfig.DEBUG) Log.d(TAG, "Bridge received: ${messageJson.take(200)}")
+            val json = org.json.JSONObject(messageJson)
+            val type = json.optString("type", "")
+            val body = json.optString("body", "")
+            val url = json.optString("url", "")
+
+            when (type) {
+                "UBER_TRIP_CAPTURED" -> viewModel.onTripCaptured(body, url)
+                "UBER_ACTIVITY_FEED_CAPTURED" -> viewModel.onActivityFeedCaptured(body)
                 "AUTO_FETCH_COMPLETE" -> {
                     viewModel.onProgressUpdate("complete", "All done!", 0, 0)
                     viewModel.onAutoFetchComplete()
                 }
                 "UBER_CSRF_CAPTURED" -> {
-                    val bodyObj = org.json.JSONObject(msg.body)
+                    val bodyObj = org.json.JSONObject(body)
                     viewModel.onCsrfCaptured(bodyObj.optString("csrfToken", ""))
                 }
                 "UBER_LOGIN_STATE" -> {
-                    val bodyObj = org.json.JSONObject(msg.body)
+                    val bodyObj = org.json.JSONObject(body)
                     viewModel.onLoginState(
                         bodyObj.optString("state", "unknown"),
                         bodyObj.optString("message", "")
                     )
                 }
                 "PROGRESS_UPDATE" -> {
-                    val bodyObj = org.json.JSONObject(msg.body)
+                    val bodyObj = org.json.JSONObject(body)
                     val step = bodyObj.optString("step", "")
                     val message = bodyObj.optString("message", "")
                     val fetched = bodyObj.optInt("fetched", bodyObj.optInt("week", 0))
@@ -461,8 +621,11 @@ private const val POSTMESSAGE_ADAPTER = """
         if (event.data && event.data.source === 'driversreward-interceptor') {
             try {
                 DriversRewardBridge.onMessage(JSON.stringify(event.data));
-            } catch(e) {}
+            } catch(e) {
+                console.error('[DriversReward] Bridge call failed:', e);
+            }
         }
     });
+    console.log('[DriversReward] PostMessage adapter installed');
 })();
 """

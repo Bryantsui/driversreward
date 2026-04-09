@@ -199,6 +199,7 @@ data class SyncWindowResponse(
 data class ProfileResponse(
     val id: String? = null,
     val name: String? = null,
+    val phone: String? = null,
     val email: String? = null,
     val region: String? = null,
     val pointsBalance: Int = 0,

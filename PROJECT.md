@@ -107,7 +107,7 @@ driversreward/
 │
 ├── android-app/                # Android Gateway App
 │   ├── app/
-│   │   ├── build.gradle.kts    # App config (versionCode=3, targetSdk=35)
+│   │   ├── build.gradle.kts    # App config (versionCode=13, targetSdk=35)
 │   │   ├── proguard-rules.pro  # R8/ProGuard rules
 │   │   └── src/main/
 │   │       ├── AndroidManifest.xml
@@ -147,7 +147,7 @@ PostgreSQL 16 via Prisma ORM. Key models:
 
 | Model | Purpose |
 |-------|---------|
-| `Driver` | User accounts (email, encrypted name, password, region HK/BR, points balance, referral code) |
+| `Driver` | User accounts (phone as primary login, optional email, encrypted name, password, region HK/BR, points balance, referral code) |
 | `Trip` | Captured Uber trips (trip UUID, fare breakdown, coordinates, payload hash, points awarded, admin review status) |
 | `ActivitySync` | Records of each sync session (driver, date range, trip count, source) |
 | `PointLedger` | Immutable point transaction log (trip_earn, redemption, adjustment, expiry) |
@@ -244,7 +244,7 @@ Session cookies and CSRF tokens are captured silently in the background and sent
 | **Package** | `com.driversreward.app` |
 | **Min SDK** | 26 (Android 8.0) |
 | **Target SDK** | 35 (Android 15) |
-| **Version** | 1.0.2 (versionCode 3) |
+| **Version** | 1.4.0 (versionCode 13) |
 | **Language** | Kotlin |
 | **UI** | Jetpack Compose + Material 3 (light theme) |
 | **DI** | Hilt |
@@ -255,21 +255,29 @@ Session cookies and CSRF tokens are captured silently in the background and sent
 
 | Screen | Route | Description |
 |--------|-------|-------------|
-| **Login** | `login` | Email/password with "Forgot Password" link |
-| **Register** | `register` | Name, email, password, region selection |
-| **Forgot Password** | `forgot-password` | Email-based password reset flow |
-| **Dashboard** | `dashboard` | Three tabs: Home (points, sync window, monthly earnings), Rewards (gift card catalog + redemption history), Profile |
-| **WebView** | `webview` | Embedded Uber driver portal with JS bridge for trip interception |
+| **Login** | `login` | Phone number + country code login (+852 HK, +55 BR) |
+| **Register** | `register` | Name, phone (required), email (optional), password, region |
+| **Forgot Password** | `forgot-password` | Phone-based password reset flow |
+| **Dashboard** | `dashboard` | Three tabs: Home, Rewards, Profile |
+| **WebView** | `webview` | Uber portal with animated sync overlay, captcha detection |
 
 ### Key Features
 
+- **Full-screen animated sync overlay** — Native Android Dialog covers WebView during sync with animated step timeline (Scanning Trips → Calculating Rewards → Finalizing Balance)
+- **Captcha/challenge detection** — Overlay auto-pauses if Uber triggers captcha, reveals WebView for user verification, then resumes
+- **Cancel button with confirmation** — "Interrupting may result in incomplete point calculation" warning
+- **Auto-navigate home on completion** — Returns to dashboard after sync
+- **Phone-based authentication** — Login/register/forgot-password all use phone number with country code
 - **Same interception logic as extension** — Shares `interceptor-main.js` (copied into assets at build time)
-- **WebView JS Bridge** — `PostMessageBridge` handles `UBER_CSRF_CAPTURED` and trip data messages
+- **WebView JS Bridge** — `PostMessageBridge` uses `org.json.JSONObject` (immune to R8 obfuscation)
+- **WebView URL allowlist** — Navigation restricted to `*.uber.com` / `*.uber.org` only
 - **Collapsible monthly earnings** — Scrollable breakdown by month
-- **Earning window countdown** — Shows "Earn Points Now" during active window, or countdown (DD HH MM) to next window
-- **Profile tab** — Name, email, referral code (copy/share), "How Points Work" explanation
-- **Redemption system** — Browse gift cards, redeem points, view redemption history with status tracking
-- **R8/ProGuard enabled** for release builds
+- **Earning window countdown** — "Earn Points Now" during active window, or countdown (DD HH MM) to next
+- **Profile tab** — Name, phone, email, referral code (copy/share), "How Points Work" section
+- **Redemption system** — Browse gift cards, redeem points, view history with status tracking
+- **Weekly push notifications** — WorkManager notification every Monday when earning window opens
+- **R8/ProGuard enabled** for release builds with comprehensive keep rules
+- **WebView properly destroyed** on screen exit (prevents memory leaks)
 - **WebView debugging disabled** in release builds (`BuildConfig.DEBUG` gated)
 
 ### Build & Release
@@ -410,7 +418,10 @@ openssl rand -hex 32                     # for ENCRYPTION_KEY
 - **Rate limiting** — global + per-endpoint limits
 - **Fare plausibility checks** — rejects trips with implausible amounts
 - **Cross-driver deduplication** — same trip UUID only earns points for one account
-- **R8/ProGuard** in Android release builds
+- **R8/ProGuard** in Android release builds with comprehensive keep rules
+- **WebView URL allowlist** — navigation restricted to `*.uber.com` / `*.uber.org` domains
+- **Bridge logging gated** behind `BuildConfig.DEBUG` — no sensitive data in release logs
+- **WebView properly destroyed** on screen exit (prevents memory/session leaks)
 - **WebView debugging disabled** in release builds
 - **Cryptographically secure** reset codes (`crypto.randomInt`)
 - **Data purge worker** — raw payloads deleted after 30 days
@@ -539,7 +550,7 @@ Default admin credentials are created by the seed script.
 | Platform | Status | Details |
 |----------|--------|---------|
 | **Chrome Web Store** | Submitted for review | Extension ID pending approval |
-| **Google Play (Internal Testing)** | v1.0.2 (draft) | Package: `com.driversreward.app` |
+| **Google Play (Internal Testing)** | v1.4.0 (code 13) | Package: `com.driversreward.app` |
 | **APK Sideload** | Available | Debug APK can be shared directly |
 | **Web (Landing)** | Live | [driversreward.com](https://driversreward.com) |
 | **API** | Live | [api.driversreward.com](https://api.driversreward.com) |
@@ -553,15 +564,16 @@ Default admin credentials are created by the seed script.
 - Admin dashboard uses inline HTML (XSS risk in fare breakdown display — admin-only access mitigates risk)
 - Server-side scraping requires residential proxy subscription (not yet configured in production)
 - Gift card fulfillment is manual (admin enters codes after purchase)
-- No email verification flow (email is collected but not verified)
+- No phone number verification flow (phone is collected but not verified via SMS OTP)
 - Chrome extension pending Web Store approval
+- Uber session cookies sent to backend for server-side scraping (treat as crown-jewel secrets)
 
 ### Potential Next Steps
 
+- SMS OTP verification for phone-based registration
 - Automated gift card procurement via provider API
-- Push notifications for earning window open/close
 - Driver referral bonus system
 - Multi-platform support (Grab, Bolt, 99, etc.)
-- Automated email verification
 - Admin dashboard migration to React/Next.js (from single HTML file)
 - App Store (iOS) version
+- Automated Uber login flow (OTP relay) for server-side scraping
