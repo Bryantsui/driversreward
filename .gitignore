@@ -39,4 +39,11 @@ chrome-extension/node_modules/
 
 # Prisma
 backend/prisma/*.db
+
+# Captured API logs (contain secrets/tokens)
+uber_api_logs/
+uber_api_capture.py
+
+# Service account keys
 play-service-account.json
+*.json.bak
