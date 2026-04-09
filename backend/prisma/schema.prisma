@@ -48,8 +48,8 @@ enum AdminRole {
 
 model Driver {
   id            String       @id @default(uuid()) @db.Uuid
-  email         String       @unique @db.VarChar(255)
-  phone         String?      @db.VarChar(50)
+  email         String?      @db.VarChar(255)
+  phone         String       @unique @db.VarChar(50)
   nameEncrypted Bytes?       @map("name_encrypted")
   passwordHash  String       @map("password_hash") @db.VarChar(255)
   region        Region
@@ -81,7 +81,7 @@ model Driver {
   referrer       Driver?  @relation("DriverReferrals", fields: [referredBy], references: [id])
   referrals      Driver[] @relation("DriverReferrals")
 
-  @@index([email], map: "idx_driver_email")
+  @@index([phone], map: "idx_driver_phone")
   @@index([region, status], map: "idx_driver_region_status")
   @@index([referralCode], map: "idx_driver_referral_code")
   @@index([createdAt], map: "idx_driver_created_at")

@@ -26,6 +26,12 @@ interface RewardsApi {
         @Body request: SubmitTripsRequest
     ): Response<SubmitTripsResponse>
 
+    @POST("api/ingest/raw-trips")
+    suspend fun submitRawTrips(
+        @Header("Authorization") token: String,
+        @Body request: SubmitRawTripsRequest
+    ): Response<SubmitRawTripsResponse>
+
     @POST("api/ingest/activity-feed")
     suspend fun submitActivityFeed(
         @Header("Authorization") token: String,
@@ -35,6 +41,9 @@ interface RewardsApi {
     @GET("api/rewards/balance")
     suspend fun getBalance(@Header("Authorization") token: String): Response<BalanceResponse>
 
+    @GET("api/driver/me")
+    suspend fun getProfile(@Header("Authorization") token: String): Response<ProfileResponse>
+
     @GET("api/rewards/gift-cards")
     suspend fun getGiftCards(@Header("Authorization") token: String): Response<GiftCardsResponse>
 
@@ -43,17 +52,39 @@ interface RewardsApi {
         @Header("Authorization") token: String,
         @Body request: RedeemRequest
     ): Response<RedeemResponse>
+
+    @GET("api/rewards/redemptions")
+    suspend fun getRedemptions(
+        @Header("Authorization") token: String,
+        @Query("limit") limit: Int = 20
+    ): Response<RedemptionsResponse>
+
+    @POST("api/session/store-credential")
+    suspend fun storeCredential(
+        @Header("Authorization") token: String,
+        @Body body: Map<String, String>
+    ): Response<Map<String, String>>
+
+    @GET("api/session/credential-status")
+    suspend fun getCredentialStatus(
+        @Header("Authorization") token: String
+    ): Response<CredentialStatusResponse>
+
+    @POST("api/session/trigger-scrape")
+    suspend fun triggerScrape(
+        @Header("Authorization") token: String
+    ): Response<TriggerScrapeResponse>
 }
 
 
-data class LoginRequest(val email: String, val password: String)
+data class LoginRequest(val phone: String, val password: String)
 
 
 data class RegisterRequest(
-    val email: String,
+    val phone: String,
     val password: String,
     val name: String,
-    val phone: String? = null,
+    val email: String? = null,
     val region: String,
     val referralCode: String? = null,
     val consentDataCollection: Boolean = true
@@ -75,7 +106,8 @@ data class TokenResponse(val accessToken: String, val refreshToken: String)
 
 data class DriverInfo(
     val id: String,
-    val email: String,
+    val phone: String = "",
+    val email: String? = null,
     val region: String,
     val referralCode: String,
     val pointsBalance: Int = 0,
@@ -145,7 +177,34 @@ data class ActivityFeedResponse(
 data class BalanceResponse(
     val pointsBalance: Int,
     val lifetimePoints: Int,
-    val referralCode: String
+    val referralCode: String,
+    val monthToDate: Int = 0,
+    val monthlyBreakdown: List<MonthlyEarning> = emptyList(),
+    val syncWindow: SyncWindowResponse? = null
+)
+
+data class MonthlyEarning(
+    val month: String,
+    val earned: Int
+)
+
+data class SyncWindowResponse(
+    val inWindow: Boolean,
+    val windowStart: String,
+    val windowEnd: String,
+    val nextWindowStart: String,
+    val nextWindowEnd: String
+)
+
+data class ProfileResponse(
+    val id: String? = null,
+    val name: String? = null,
+    val email: String? = null,
+    val region: String? = null,
+    val pointsBalance: Int = 0,
+    val lifetimePoints: Int = 0,
+    val referralCode: String? = null,
+    val createdAt: String? = null
 )
 
 
@@ -173,7 +232,26 @@ data class RedeemResponse(
     val pointsSpent: Int
 )
 
-data class ForgotPasswordRequest(val email: String)
+data class RawTripItem(
+    val rawBody: String,
+    val tripUuid: String = "",
+    val url: String = ""
+)
+
+data class SubmitRawTripsRequest(
+    val trips: List<RawTripItem>,
+    val source: String = "android_app"
+)
+
+data class SubmitRawTripsResponse(
+    val processed: Int,
+    val created: Int,
+    val duplicates: Int,
+    val errors: Int,
+    val totalPointsAwarded: Int
+)
+
+data class ForgotPasswordRequest(val phone: String)
 
 data class ForgotPasswordResponse(
     val message: String,
@@ -181,9 +259,35 @@ data class ForgotPasswordResponse(
 )
 
 data class ResetPasswordRequest(
-    val email: String,
+    val phone: String,
     val code: String,
     val newPassword: String
 )
 
 data class ResetPasswordResponse(val message: String)
+
+data class CredentialStatusResponse(
+    val hasCredential: Boolean = false,
+    val isValid: Boolean = false,
+    val serverScrapeAvailable: Boolean = false,
+    val capturedAt: String? = null,
+    val expiresAt: String? = null
+)
+
+data class TriggerScrapeResponse(
+    val status: String = "",
+    val scrapeJobId: String? = null
+)
+
+data class RedemptionsResponse(val redemptions: List<RedemptionItem>, val total: Int)
+
+data class RedemptionItem(
+    val id: String,
+    val giftCardName: String = "Gift Card",
+    val pointsSpent: Int = 0,
+    val status: String = "PENDING",
+    val giftCardCode: String? = null,
+    val failureReason: String? = null,
+    val createdAt: String = "",
+    val fulfilledAt: String? = null
+)

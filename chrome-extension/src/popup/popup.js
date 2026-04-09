@@ -9,7 +9,7 @@ async function init() {
 
   if (auth?.accessToken) {
     document.body.className = 'logged-in';
-    document.getElementById('driver-email').textContent = auth.email || '';
+    document.getElementById('driver-email').textContent = auth.phone || auth.email || '';
     await loadDashboard(auth);
     startPolling();
   } else {
@@ -65,13 +65,15 @@ function formatWindowDate(isoDate) {
 
 function formatRelativeTime(ms) {
   if (ms <= 0) return 'soon';
-  const hours = Math.floor(ms / 3600000);
-  const days = Math.floor(hours / 24);
-  if (days >= 2) return `in ${days} days`;
-  if (days === 1) return 'in 1 day';
-  if (hours >= 2) return `in ${hours} hours`;
-  if (hours === 1) return 'in about an hour';
-  return 'in less than an hour';
+  const totalMin = Math.floor(ms / 60000);
+  const d = Math.floor(totalMin / 1440);
+  const h = Math.floor((totalMin % 1440) / 60);
+  const m = totalMin % 60;
+  const parts = [];
+  if (d > 0) parts.push(`${d}d`);
+  if (h > 0) parts.push(`${h}h`);
+  if (m > 0 || parts.length === 0) parts.push(`${m}m`);
+  return `in ${parts.join(' ')}`;
 }
 
 function updateSyncWindowBanner() {
@@ -361,16 +363,19 @@ function showError(msg) {
 }
 
 document.getElementById('btn-login').addEventListener('click', async () => {
-  const email = document.getElementById('login-email').value.trim();
+  const countryCode = document.getElementById('login-country-code').value;
+  const phoneNum = document.getElementById('login-phone').value.trim();
   const password = document.getElementById('login-password').value;
 
-  if (!email || !password) { showError('Please fill in all fields'); return; }
+  if (!phoneNum || !password) { showError('Please fill in all fields'); return; }
+
+  const phone = countryCode + phoneNum;
 
   try {
     const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ phone, password }),
     });
 
     const data = await res.json();
@@ -383,7 +388,7 @@ document.getElementById('btn-login').addEventListener('click', async () => {
         refreshToken: data.refreshToken,
         driverId: data.driver.id,
         region: data.driver.region,
-        email: data.driver.email,
+        phone: data.driver.phone,
       },
     });
 
@@ -413,23 +418,26 @@ function showLoginForm() {
   document.getElementById('btn-show-register').style.display = '';
 }
 
-let resetEmail = '';
+let resetPhone = '';
 
 document.getElementById('btn-show-forgot')?.addEventListener('click', (e) => {
   e.preventDefault();
   hideAllAuthForms();
   document.getElementById('forgot-form-wrap').style.display = '';
-  const loginEmail = document.getElementById('login-email').value.trim();
-  if (loginEmail) document.getElementById('forgot-email').value = loginEmail;
+  const loginPhone = document.getElementById('login-phone').value.trim();
+  if (loginPhone) document.getElementById('forgot-phone').value = loginPhone;
+  document.getElementById('forgot-country-code').value = document.getElementById('login-country-code').value;
 });
 
 document.getElementById('btn-forgot-back')?.addEventListener('click', () => showLoginForm());
 document.getElementById('btn-reset-back')?.addEventListener('click', () => showLoginForm());
 
 document.getElementById('btn-send-code')?.addEventListener('click', async () => {
-  const email = document.getElementById('forgot-email').value.trim();
-  if (!email) { showError('Please enter your email'); return; }
+  const countryCode = document.getElementById('forgot-country-code').value;
+  const phoneNum = document.getElementById('forgot-phone').value.trim();
+  if (!phoneNum) { showError('Please enter your phone number'); return; }
 
+  const phone = countryCode + phoneNum;
   const btn = document.getElementById('btn-send-code');
   btn.disabled = true;
   btn.textContent = 'Sending...';
@@ -438,12 +446,12 @@ document.getElementById('btn-send-code')?.addEventListener('click', async () => 
     const res = await fetch(`${API_BASE_URL}/api/auth/forgot-password`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ phone }),
     });
     const data = await res.json();
     if (!res.ok) { showError(data.error || 'Failed to send code'); return; }
 
-    resetEmail = email;
+    resetPhone = phone;
     hideAllAuthForms();
     document.getElementById('reset-form-wrap').style.display = '';
 
@@ -451,7 +459,7 @@ document.getElementById('btn-send-code')?.addEventListener('click', async () => 
       document.getElementById('reset-code').value = data._resetCode;
       showSuccess('Your reset code is ready. Please set a new password below.');
     } else {
-      showSuccess('Reset code sent! Check your email.');
+      showSuccess('A reset code has been generated. Check server logs.');
     }
   } catch { showError('Network error. Please try again.'); }
   finally {
@@ -477,16 +485,15 @@ document.getElementById('btn-reset-password')?.addEventListener('click', async (
     const res = await fetch(`${API_BASE_URL}/api/auth/reset-password`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: resetEmail, code, newPassword }),
+      body: JSON.stringify({ phone: resetPhone, code, newPassword }),
     });
     const data = await res.json();
     if (!res.ok) { showError(data.error || 'Reset failed'); return; }
 
     showLoginForm();
     showSuccess('Password reset! Please sign in with your new password.');
-    document.getElementById('login-email').value = resetEmail;
     document.getElementById('login-password').value = '';
-    resetEmail = '';
+    resetPhone = '';
   } catch { showError('Network error. Please try again.'); }
   finally {
     btn.disabled = false;
@@ -501,21 +508,30 @@ document.getElementById('btn-show-register').addEventListener('click', () => {
 
 document.getElementById('btn-register-back')?.addEventListener('click', () => showLoginForm());
 
+document.getElementById('reg-region')?.addEventListener('change', () => {
+  const region = document.getElementById('reg-region').value;
+  document.getElementById('reg-country-code').value = region === 'HK' ? '+852' : '+55';
+});
+
 document.getElementById('btn-register').addEventListener('click', async () => {
   const name = document.getElementById('reg-name').value.trim();
-  const email = document.getElementById('reg-email').value.trim();
+  const countryCode = document.getElementById('reg-country-code').value;
+  const phoneNum = document.getElementById('reg-phone').value.trim();
+  const email = document.getElementById('reg-email').value.trim() || undefined;
   const password = document.getElementById('reg-password').value;
   const region = document.getElementById('reg-region').value;
   const referralCode = document.getElementById('reg-referral').value.trim() || undefined;
 
-  if (!name || !email || !password) { showError('Please fill in all required fields'); return; }
+  if (!name || !phoneNum || !password) { showError('Please fill in all required fields'); return; }
   if (password.length < 8) { showError('Password must be at least 8 characters'); return; }
+
+  const phone = countryCode + phoneNum;
 
   try {
     const res = await fetch(`${API_BASE_URL}/api/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, password, region, referralCode, consentDataCollection: true }),
+      body: JSON.stringify({ name, phone, email, password, region, referralCode, consentDataCollection: true }),
     });
 
     const data = await res.json();
@@ -528,7 +544,7 @@ document.getElementById('btn-register').addEventListener('click', async () => {
         refreshToken: data.refreshToken,
         driverId: data.driver.id,
         region: data.driver.region,
-        email: data.driver.email,
+        phone: data.driver.phone,
       },
     });
 
@@ -681,6 +697,13 @@ document.getElementById('btn-logout')?.addEventListener('click', async () => {
   stopPolling();
   await sendMessage({ type: 'LOGOUT' });
   init();
+});
+
+document.getElementById('how-points-toggle')?.addEventListener('click', () => {
+  const body = document.getElementById('how-points-body');
+  const chevron = document.getElementById('how-points-chevron');
+  const isOpen = body.classList.toggle('open');
+  chevron.classList.toggle('open', isOpen);
 });
 
 init();

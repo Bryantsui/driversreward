@@ -39,3 +39,4 @@ chrome-extension/node_modules/
 
 # Prisma
 backend/prisma/*.db
+play-service-account.json

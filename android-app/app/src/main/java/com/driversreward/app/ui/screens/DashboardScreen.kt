@@ -7,7 +7,10 @@ import android.content.Intent
 import android.util.Log
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -399,7 +402,13 @@ fun ProfileTab(s: DashboardUiState, padding: PaddingValues, onLogout: () -> Unit
     val context = LocalContext.current
     var copiedToast by remember { mutableStateOf(false) }
 
-    Column(modifier = Modifier.fillMaxSize().padding(padding).padding(20.dp)) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(padding)
+            .verticalScroll(rememberScrollState())
+            .padding(20.dp)
+    ) {
         Spacer(Modifier.height(8.dp))
         Text("Profile", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Gray900)
         Spacer(Modifier.height(24.dp))
@@ -474,7 +483,10 @@ fun ProfileTab(s: DashboardUiState, padding: PaddingValues, onLogout: () -> Unit
             LaunchedEffect(Unit) { delay(2000); copiedToast = false }
         }
 
-        Spacer(Modifier.weight(1f))
+        Spacer(Modifier.height(16.dp))
+        HowPointsWorkCard()
+
+        Spacer(Modifier.height(24.dp))
 
         OutlinedButton(
             onClick = onLogout, modifier = Modifier.fillMaxWidth().height(48.dp),
@@ -484,7 +496,7 @@ fun ProfileTab(s: DashboardUiState, padding: PaddingValues, onLogout: () -> Unit
             Spacer(Modifier.width(8.dp))
             Text("Sign Out", fontWeight = FontWeight.SemiBold)
         }
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(16.dp))
     }
 }
 
@@ -493,6 +505,72 @@ fun ProfileRow(label: String, value: String) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(label, color = Gray500, fontSize = 14.sp)
         Text(value, color = Gray900, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
+@Composable
+fun HowPointsWorkCard() {
+    var expanded by remember { mutableStateOf(false) }
+
+    Card(shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = White)) {
+        Column(Modifier.padding(16.dp)) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = !expanded }
+                    .padding(vertical = 2.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Info, null, tint = Indigo600, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("How Points Work", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Gray900)
+                }
+                Icon(
+                    if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = if (expanded) "Collapse" else "Expand",
+                    tint = Gray500, modifier = Modifier.size(20.dp)
+                )
+            }
+
+            AnimatedVisibility(visible = expanded) {
+                Column {
+                    Spacer(Modifier.height(8.dp))
+                    HorizontalDivider(color = Gray100)
+
+                    FaqItem(
+                        icon = "\uD83E\uDE99",
+                        title = "Earning Points",
+                        body = "You earn 1 point for every completed trip synced during your weekly earning window. Cancelled trips and trips older than 30 days do not earn points."
+                    )
+                    HorizontalDivider(color = Gray100, modifier = Modifier.padding(vertical = 2.dp))
+                    FaqItem(
+                        icon = "\uD83D\uDCC5",
+                        title = "Sync Window",
+                        body = "Your earning window opens every Monday at 00:00 and closes Wednesday at 23:59 (local time). You can sync trips anytime, but only syncs during the window earn points."
+                    )
+                    HorizontalDivider(color = Gray100, modifier = Modifier.padding(vertical = 2.dp))
+                    FaqItem(
+                        icon = "\uD83C\uDF81",
+                        title = "Redeem Rewards",
+                        body = "Spend your points on gift cards from the Rewards tab. Points are valid for 12 months from the date earned."
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FaqItem(icon: String, title: String, body: String) {
+    Row(Modifier.padding(vertical = 10.dp)) {
+        Text(icon, fontSize = 20.sp, modifier = Modifier.padding(end = 12.dp, top = 1.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Gray900)
+            Spacer(Modifier.height(3.dp))
+            Text(body, fontSize = 12.sp, color = Gray500, lineHeight = 17.sp)
+        }
     }
 }
 
@@ -646,13 +724,13 @@ private fun formatMonth(monthStr: String): String {
 
 private fun formatRelativeTime(ms: Long): String {
     if (ms <= 0) return "soon"
-    val hours = ms / 3_600_000
-    val days = hours / 24
-    return when {
-        days >= 2 -> "in $days days"
-        days == 1L -> "in 1 day"
-        hours >= 2 -> "in $hours hours"
-        hours == 1L -> "in about an hour"
-        else -> "in less than an hour"
-    }
+    val totalMinutes = ms / 60_000
+    val days = totalMinutes / 1440
+    val hours = (totalMinutes % 1440) / 60
+    val minutes = totalMinutes % 60
+    val parts = mutableListOf<String>()
+    if (days > 0) parts.add("${days}d")
+    if (hours > 0) parts.add("${hours}h")
+    if (minutes > 0 || parts.isEmpty()) parts.add("${minutes}m")
+    return "in ${parts.joinToString(" ")}"
 }

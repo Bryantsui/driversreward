@@ -20,12 +20,12 @@ class AuthRepository @Inject constructor(
         val REFRESH_TOKEN = stringPreferencesKey("refresh_token")
         val DRIVER_ID = stringPreferencesKey("driver_id")
         val REGION = stringPreferencesKey("region")
-        val EMAIL = stringPreferencesKey("email")
+        val PHONE = stringPreferencesKey("phone")
     }
 
-    suspend fun login(email: String, password: String): Result<AuthResponse> {
+    suspend fun login(phone: String, password: String): Result<AuthResponse> {
         return try {
-            val response = api.login(LoginRequest(email, password))
+            val response = api.login(LoginRequest(phone, password))
             if (response.isSuccessful && response.body() != null) {
                 val auth = response.body()!!
                 saveAuth(auth)
@@ -39,18 +39,20 @@ class AuthRepository @Inject constructor(
     }
 
     suspend fun register(
-        email: String,
+        phone: String,
         password: String,
         name: String,
         region: String,
+        email: String? = null,
         referralCode: String? = null
     ): Result<AuthResponse> {
         return try {
             val response = api.register(
                 RegisterRequest(
-                    email = email,
+                    phone = phone,
                     password = password,
                     name = name,
+                    email = email,
                     region = region,
                     referralCode = referralCode
                 )
@@ -91,9 +93,9 @@ class AuthRepository @Inject constructor(
         }
     }
 
-    suspend fun forgotPassword(email: String): Result<String?> {
+    suspend fun forgotPassword(phone: String): Result<String?> {
         return try {
-            val response = api.forgotPassword(ForgotPasswordRequest(email))
+            val response = api.forgotPassword(ForgotPasswordRequest(phone))
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!._resetCode)
             } else {
@@ -104,9 +106,9 @@ class AuthRepository @Inject constructor(
         }
     }
 
-    suspend fun resetPassword(email: String, code: String, newPassword: String): Result<String> {
+    suspend fun resetPassword(phone: String, code: String, newPassword: String): Result<String> {
         return try {
-            val response = api.resetPassword(ResetPasswordRequest(email, code, newPassword))
+            val response = api.resetPassword(ResetPasswordRequest(phone, code, newPassword))
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!.message)
             } else {
@@ -131,7 +133,7 @@ class AuthRepository @Inject constructor(
             prefs[REFRESH_TOKEN] = auth.refreshToken
             prefs[DRIVER_ID] = auth.driver.id
             prefs[REGION] = auth.driver.region
-            prefs[EMAIL] = auth.driver.email
+            prefs[PHONE] = auth.driver.phone
         }
     }
 }

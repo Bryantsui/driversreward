@@ -5,27 +5,34 @@ import android.graphics.Bitmap
 import android.util.Log
 import android.webkit.*
 import com.driversreward.app.BuildConfig
+import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.driversreward.app.ui.theme.*
 import com.google.gson.Gson
+import kotlinx.coroutines.delay
 import java.io.InputStreamReader
 
 private const val TAG = "DriversReward"
@@ -86,6 +93,16 @@ fun WebViewScreen(
         """.trimIndent()
     }
 
+    var isStatusExpanded by remember { mutableStateOf(true) }
+    val isComplete = uiState.syncStep == "complete"
+
+    LaunchedEffect(isComplete) {
+        if (isComplete) {
+            delay(5000)
+            isStatusExpanded = false
+        }
+    }
+
     Column(modifier = Modifier.fillMaxSize().background(Gray50)) {
         TopAppBar(
             title = { Text("Uber Driver Portal", fontWeight = FontWeight.SemiBold) },
@@ -100,8 +117,6 @@ fun WebViewScreen(
                 navigationIconContentColor = Indigo600
             )
         )
-
-        StatusPanel(uiState)
 
         Box(modifier = Modifier.weight(1f)) {
             AndroidView(
@@ -166,12 +181,27 @@ fun WebViewScreen(
                     }
                 }
             )
+
+            FloatingStatusCard(
+                uiState = uiState,
+                isExpanded = isStatusExpanded,
+                onToggle = { isStatusExpanded = !isStatusExpanded },
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .zIndex(10f)
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
+            )
         }
     }
 }
 
 @Composable
-fun StatusPanel(uiState: WebViewUiState) {
+fun FloatingStatusCard(
+    uiState: WebViewUiState,
+    isExpanded: Boolean,
+    onToggle: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     val step = uiState.syncStep
     val login = uiState.loginState
 
@@ -205,7 +235,7 @@ fun StatusPanel(uiState: WebViewUiState) {
     }
 
     val detailText = when {
-        login == "logged_out" || login == "unknown" -> "Log in to Uber above to begin."
+        login == "logged_out" || login == "unknown" -> "Log in to Uber below to begin."
         login == "checking" && step == null -> "Verifying your Uber session..."
         step == "starting" || step == "fetching_history" -> uiState.syncMessage ?: "Scanning trip history..."
         step == "fetching_details" -> uiState.syncMessage ?: "Fetching trip details..."
@@ -216,38 +246,94 @@ fun StatusPanel(uiState: WebViewUiState) {
     }
 
     val showBar = step != null || login == "checking"
+    val isActive = step != null && step != "complete"
+
+    val headerBg = when {
+        step == "complete" -> Emerald500
+        isActive -> Indigo600
+        login == "logged_in" -> Indigo600
+        else -> Gray600
+    }
+    val summaryText = when {
+        step == "complete" -> "Sync complete!"
+        step == "fetching_details" -> "Fetching ${uiState.syncProgress}/${uiState.syncTotal} trips..."
+        step == "fetching_history" -> "Scanning week ${uiState.syncProgress}/${uiState.syncTotal}..."
+        step == "submitting" -> "Sending to server..."
+        step == "starting" -> "Starting..."
+        login == "logged_in" -> "Preparing data collection..."
+        login == "checking" -> "Checking session..."
+        else -> "Waiting for login..."
+    }
 
     Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .shadow(8.dp, RoundedCornerShape(14.dp)),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = White)
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Text("Data Collection Status", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Indigo600)
-            Spacer(modifier = Modifier.height(10.dp))
-
-            StepRow(1, "Log in to Uber Driver Portal", s1)
-            StepRow(2, "Scan trip history", s2)
-            StepRow(3, "Fetch trip details", s3)
-            StepRow(4, "Sync to server & earn points", s4)
-
-            if (showBar) {
-                Spacer(modifier = Modifier.height(10.dp))
-                LinearProgressIndicator(
-                    progress = { if (progressPct > 0f) progressPct else 0f },
-                    modifier = Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)),
-                    color = Indigo600,
-                    trackColor = Gray200,
+        Column {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(headerBg)
+                    .clickable(onClick = onToggle)
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                SessionDot(login)
+                Spacer(modifier = Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "Data Collection",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = White
+                    )
+                    if (!isExpanded) {
+                        Text(summaryText, fontSize = 11.sp, color = White.copy(alpha = 0.8f))
+                    }
+                }
+                Icon(
+                    if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = "Toggle",
+                    tint = White,
+                    modifier = Modifier.size(20.dp)
                 )
             }
 
-            if (detailText.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(detailText, fontSize = 11.sp, color = Gray400)
-            }
+            AnimatedVisibility(visible = isExpanded) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    StepRow(1, "Log in to Uber Driver Portal", s1)
+                    StepRow(2, "Scan trip history", s2)
+                    StepRow(3, "Fetch trip details", s3)
+                    StepRow(4, "Sync to server & earn points", s4)
 
-            Spacer(modifier = Modifier.height(10.dp))
-            SessionDot(login)
+                    if (showBar) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        LinearProgressIndicator(
+                            progress = { if (progressPct > 0f) progressPct else 0f },
+                            modifier = Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)),
+                            color = Indigo600,
+                            trackColor = Gray200,
+                        )
+                    }
+
+                    if (detailText.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(detailText, fontSize = 11.sp, color = Gray400)
+                    }
+
+                    if (step == "complete") {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            "Recent trips may take a few hours to appear in Uber\u2019s system.",
+                            fontSize = 10.sp,
+                            color = Gray400
+                        )
+                    }
+                }
+            }
         }
     }
 }

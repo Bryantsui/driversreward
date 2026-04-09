@@ -24,7 +24,7 @@ router.post('/register', async (req: Request, res: Response, next) => {
 router.post('/login', async (req: Request, res: Response, next) => {
   try {
     const input = loginSchema.parse(req.body);
-    const result = await loginDriver(input.email, input.password, req.ip, req.headers['user-agent']);
+    const result = await loginDriver(input.phone, input.password, req.ip, req.headers['user-agent']);
     res.json(result);
   } catch (err) {
     next(err);
@@ -42,13 +42,13 @@ router.post('/refresh', async (req: Request, res: Response, next) => {
 });
 
 const forgotPasswordSchema = z.object({
-  email: z.string().email(),
+  phone: z.string().min(8).max(20),
 });
 
 router.post('/forgot-password', async (req: Request, res: Response, next) => {
   try {
-    const { email } = forgotPasswordSchema.parse(req.body);
-    const result = await requestPasswordReset(email, req.ip);
+    const { phone } = forgotPasswordSchema.parse(req.body);
+    const result = await requestPasswordReset(phone, req.ip);
     res.json(result);
   } catch (err) {
     next(err);
@@ -56,7 +56,7 @@ router.post('/forgot-password', async (req: Request, res: Response, next) => {
 });
 
 const resetPasswordSchema = z.object({
-  email: z.string().email(),
+  phone: z.string().min(8).max(20),
   code: z.string().length(6),
   newPassword: z.string().min(8),
 });
@@ -64,7 +64,7 @@ const resetPasswordSchema = z.object({
 router.post('/reset-password', async (req: Request, res: Response, next) => {
   try {
     const input = resetPasswordSchema.parse(req.body);
-    const result = await resetPassword(input.email, input.code, input.newPassword, req.ip);
+    const result = await resetPassword(input.phone, input.code, input.newPassword, req.ip);
     res.json(result);
   } catch (err) {
     next(err);

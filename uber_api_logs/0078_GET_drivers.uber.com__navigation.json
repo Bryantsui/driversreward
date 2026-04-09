@@ -1,0 +1,142 @@
+{
+  "seq": 78,
+  "timestamp": "2026-04-09T08:28:24.116265",
+  "method": "GET",
+  "url": "https://drivers.uber.com/navigation",
+  "host": "drivers.uber.com",
+  "path": "/navigation",
+  "status_code": 200,
+  "request_headers": {
+    "sec-ch-ua-platform": "\"macOS\"",
+    "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
+    "sec-ch-ua": "\"Chromium\";v=\"146\", \"Not-A.Brand\";v=\"24\", \"Google Chrome\";v=\"146\"",
+    "sec-ch-ua-mobile": "?0",
+    "accept": "*/*",
+    "sec-fetch-site": "same-origin",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-dest": "empty",
+    "referer": "https://drivers.uber.com/earnings/activities",
+    "accept-encoding": "gzip, deflate, br, zstd",
+    "accept-language": "en-GB,en-US;q=0.9,en;q=0.8",
+    "cookie": "__cf_bm=K0Tw2cMV6DYIXFG8QBfO2132KLRsdH1cuDIuLwEt7Nk-1775694382-1.0.1.1-u0mmbh1L.ljLbNN6Ss4Pd06cxViXolFuXZVUHfT01GTq2..enFGSduroqnDU3eEOxk9mJAoAaKGd5OphW0yeGPVe5fTA5wve5CAbWH3NtFw, marketing_vistor_id=f2c4b505-b369-4ab0-889c-46b20d800698, x-uber-analytics-session-id=e215eb71-fb9b-4c8a-85b3-681e8fe4e3b0, udi-id=eGLrbJW8Uk6lnSy0DmSSKKTPngJGg9Odpk7HZW7qgorOh1wjURy//2khrI5PiAS7e0EzEYOyXW8ZR83p8X1JlY960T00Gj4mQ+YX5FBMmco/Tq2+lSFLC9BMDNEVioBLo/hC7lU3+315YoM/TevITac0X2r0WTE7Aq2NcCRDfnFBCBcJZKCPAJtyaqrkHRjRi58PiQrZM3GqQQAY5gUeug==0/9qBM20LiZPtAAmuFLcQw==hzO8Rp3VkAsy8AWFZ3vh6L0XHQEtsjW1HSTg1FJY7sA=, udi-fingerprint=NZpCJYrUXLt1ng/AyVy1AYM05e6hbpSugFznAw2uUUeQOr5BN/KHDI9b2JH2qAL7s0sXWQ8PtdAaf65pzdAeXQ==D31x7K3gpLVNdk0a8SfXYntyDcSUM1zLx8iekTgawII=, isWebLogin=true, sid=QA.CAESEN0vhur-_EIDk4NUPqovZTkYpYGR1gYiATEqJGExMWM5OTdiLTg4MGYtNGFjYy05ODNkLTE1MDMzNjFkYTUzMzJA0pTyMnc-4eK2taV0BwHuZWUrWGpPUiuM84wsW-cbv9XKxnkA6QIREgU-AFf9H7-67GiNmPv-6Koir3gLq4TBfjoBMUIIdWJlci5jb20.C9MiyQS_geTKn5SeHC5T2SiPLhvsGSC2_MvV5x6kDq8, smeta={\"expiresAt\":1791246501878}, csid=1.1778286502333.xH64XybBi1XOy9EvZTeci9d0IGq/GvnbGy+U6bdFBxI=, _ua={\"session_id\":\"5329ff0c-1da4-410b-95cb-4fa7ce60131c\",\"session_time_ms\":1775694502339}, jwt-session=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3NzU2OTQ1MDIsImV4cCI6MTc3NTc4MDkwMn0.zO5bAJjhqgF3cJG8kA1AFxP-3u7dFJmp6dcCSFCRb9w",
+    "priority": "u=1, i"
+  },
+  "request_cookies": {
+    "__cf_bm": "K0Tw2cMV6DYIXFG8QBfO2132KLRsdH1cuDIuLwEt7Nk-1775694382-1.0.1.1-u0mmbh1L.ljLbNN6Ss4Pd06cxViXolFuXZVUHfT01GTq2..enFGSduroqnDU3eEOxk9mJAoAaKGd5OphW0yeGPVe5fTA5wve5CAbWH3NtFw",
+    "marketing_vistor_id": "f2c4b505-b369-4ab0-889c-46b20d800698",
+    "x-uber-analytics-session-id": "e215eb71-fb9b-4c8a-85b3-681e8fe4e3b0",
+    "udi-id": "eGLrbJW8Uk6lnSy0DmSSKKTPngJGg9Odpk7HZW7qgorOh1wjURy//2khrI5PiAS7e0EzEYOyXW8ZR83p8X1JlY960T00Gj4mQ+YX5FBMmco/Tq2+lSFLC9BMDNEVioBLo/hC7lU3+315YoM/TevITac0X2r0WTE7Aq2NcCRDfnFBCBcJZKCPAJtyaqrkHRjRi58PiQrZM3GqQQAY5gUeug==0/9qBM20LiZPtAAmuFLcQw==hzO8Rp3VkAsy8AWFZ3vh6L0XHQEtsjW1HSTg1FJY7sA=",
+    "udi-fingerprint": "NZpCJYrUXLt1ng/AyVy1AYM05e6hbpSugFznAw2uUUeQOr5BN/KHDI9b2JH2qAL7s0sXWQ8PtdAaf65pzdAeXQ==D31x7K3gpLVNdk0a8SfXYntyDcSUM1zLx8iekTgawII=",
+    "isWebLogin": "true",
+    "sid": "QA.CAESEN0vhur-_EIDk4NUPqovZTkYpYGR1gYiATEqJGExMWM5OTdiLTg4MGYtNGFjYy05ODNkLTE1MDMzNjFkYTUzMzJA0pTyMnc-4eK2taV0BwHuZWUrWGpPUiuM84wsW-cbv9XKxnkA6QIREgU-AFf9H7-67GiNmPv-6Koir3gLq4TBfjoBMUIIdWJlci5jb20.C9MiyQS_geTKn5SeHC5T2SiPLhvsGSC2_MvV5x6kDq8",
+    "smeta": "{\"expiresAt\":1791246501878}",
+    "csid": "1.1778286502333.xH64XybBi1XOy9EvZTeci9d0IGq/GvnbGy+U6bdFBxI=",
+    "_ua": "{\"session_id\":\"5329ff0c-1da4-410b-95cb-4fa7ce60131c\",\"session_time_ms\":1775694502339}",
+    "jwt-session": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3NzU2OTQ1MDIsImV4cCI6MTc3NTc4MDkwMn0.zO5bAJjhqgF3cJG8kA1AFxP-3u7dFJmp6dcCSFCRb9w"
+  },
+  "request_body": "",
+  "response_headers": {
+    "date": "Thu, 09 Apr 2026 00:28:24 GMT",
+    "content-type": "text/plain; charset=utf-8",
+    "cf-ray": "9e956436fa8bdda2-HKG",
+    "vary": "Accept-Encoding",
+    "set-cookie": "jwt-session=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3NzU2OTQ1MDQsImV4cCI6MTc3NTc4MDkwNH0.IrDJFwwF0vi44uHUB72aLhPKjdQTR8PivUdahLO7euA; path=/; expires=Fri, 10 Apr 2026 00:28:24 GMT; secure; httponly",
+    "x-frame-options": "SAMEORIGIN",
+    "cache-control": "no-store, max-age=0",
+    "content-encoding": "gzip",
+    "x-envoy-upstream-service-time": "400",
+    "strict-transport-security": "max-age=31536000",
+    "x-content-type-options": "nosniff",
+    "cf-cache-status": "DYNAMIC",
+    "x-uber-edge": "e4-phx52:w:168880207,ufe:production-cloudflare:compute-0:phx6,cloudflare:production:default",
+    "server": "cloudflare"
+  },
+  "response_body": {
+    "user": {
+      "rating": 5,
+      "formattedRating": "5 stars",
+      "imageUrl": "https://d1w2poirtb3as9.cloudfront.net/76b14011-70e1-485e-89b8-78853b48cef9.jpeg?Expires=1775737703&Signature=eTLrRI807QCgzY2ETM8Yn6kDFRvLf9~Ttq~u85-J44ciXIFE2PR4XrGBhoDybFK6ivOE0hM8ePM4oybUWSLmF86nmH8m61b-~28DJAqZGk~TJLVumO-elfLzCJfplSHbWwgLmJFPgjgoy1F8yGs5~AlCK663gA8K80BvZHldgrG8b3nXLN~Sx9CCuCsDiiTYCsG6lqFOG7wA9gJS5PxMWTJIiPcriHJ31e3Dab65DpaOoxTu-kINEHcL6BWNq9QNMGkz8kG9-zeqTQ5APO5ZKyxfOBqleP8IhwcQWqBcdApDCeFIrkZuK2Ve8ImV7F6qsfZ8ATFuqLKdz3oSiSzSmg__&Key-Pair-Id=K36LFL06Z5BT10",
+      "userName": "CHI YAN BRYAN TSUI"
+    },
+    "navigation": {
+      "title": "Uber Earnings",
+      "mainItems": {
+        "earnings": {
+          "label": "Partner earnings",
+          "info": {
+            "urls": [
+              "/earnings/activities",
+              "/earnings/fares",
+              "/earnings/statements"
+            ]
+          },
+          "children": {
+            "activities": {
+              "label": "Activity",
+              "info": {
+                "urls": [
+                  "/earnings/activities"
+                ]
+              },
+              "asyncNav": true
+            },
+            "statements": {
+              "label": "Weekly Statements",
+              "info": {
+                "urls": [
+                  "/earnings/statements"
+                ]
+              },
+              "asyncNav": true
+            }
+          }
+        },
+        "invoices": {
+          "label": "Invoices",
+          "info": {
+            "urls": [
+              "/invoices/",
+              "/p3/tax-compliance/invoices"
+            ]
+          }
+        },
+        "banking": {
+          "label": "Banking",
+          "info": {
+            "urls": [
+              "/p3/banking/"
+            ]
+          }
+        }
+      },
+      "popover": {
+        "profile": {
+          "info": {
+            "url": "/p3/drivers/profile"
+          },
+          "label": "Profile"
+        },
+        "account": {
+          "info": {
+            "url": "https://account.uber.com/?entry_domain=drivers.uber.com&marketing_vistor_id=f2c4b505-b369-4ab0-889c-46b20d800698&next_url=https%3A%2F%2Fdrivers.uber.com%2Fnavigation&entry_ctx=DRIVERS"
+          },
+          "label": "Manage account"
+        },
+        "help": {
+          "label": "Help",
+          "info": {
+            "url": "https://help.uber.com/partners"
+          }
+        },
+        "signOut": {
+          "label": "Sign out",
+          "info": {
+            "url": "/p3/logout/"
+          }
+        }
+      }
+    }
+  },
+  "content_type": "text/plain; charset=utf-8",
+  "duration_ms": 599.2
+}

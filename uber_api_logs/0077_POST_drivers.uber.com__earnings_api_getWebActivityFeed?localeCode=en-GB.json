@@ -1,0 +1,197 @@
+{
+  "seq": 77,
+  "timestamp": "2026-04-09T08:28:23.845334",
+  "method": "POST",
+  "url": "https://drivers.uber.com/earnings/api/getWebActivityFeed?localeCode=en-GB",
+  "host": "drivers.uber.com",
+  "path": "/earnings/api/getWebActivityFeed?localeCode=en-GB",
+  "status_code": 200,
+  "request_headers": {
+    "content-length": "77",
+    "sec-ch-ua-platform": "\"macOS\"",
+    "x-csrf-token": "x",
+    "x-uber-earnings-web": "c000fb7353722717e36cfb6576a9a382",
+    "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
+    "sec-ch-ua": "\"Chromium\";v=\"146\", \"Not-A.Brand\";v=\"24\", \"Google Chrome\";v=\"146\"",
+    "content-type": "application/json",
+    "sec-ch-ua-mobile": "?0",
+    "accept": "*/*",
+    "origin": "https://drivers.uber.com",
+    "sec-fetch-site": "same-origin",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-dest": "empty",
+    "referer": "https://drivers.uber.com/earnings/activities",
+    "accept-encoding": "gzip, deflate, br, zstd",
+    "accept-language": "en-GB,en-US;q=0.9,en;q=0.8",
+    "cookie": "__cf_bm=K0Tw2cMV6DYIXFG8QBfO2132KLRsdH1cuDIuLwEt7Nk-1775694382-1.0.1.1-u0mmbh1L.ljLbNN6Ss4Pd06cxViXolFuXZVUHfT01GTq2..enFGSduroqnDU3eEOxk9mJAoAaKGd5OphW0yeGPVe5fTA5wve5CAbWH3NtFw, marketing_vistor_id=f2c4b505-b369-4ab0-889c-46b20d800698, x-uber-analytics-session-id=e215eb71-fb9b-4c8a-85b3-681e8fe4e3b0, udi-id=eGLrbJW8Uk6lnSy0DmSSKKTPngJGg9Odpk7HZW7qgorOh1wjURy//2khrI5PiAS7e0EzEYOyXW8ZR83p8X1JlY960T00Gj4mQ+YX5FBMmco/Tq2+lSFLC9BMDNEVioBLo/hC7lU3+315YoM/TevITac0X2r0WTE7Aq2NcCRDfnFBCBcJZKCPAJtyaqrkHRjRi58PiQrZM3GqQQAY5gUeug==0/9qBM20LiZPtAAmuFLcQw==hzO8Rp3VkAsy8AWFZ3vh6L0XHQEtsjW1HSTg1FJY7sA=, udi-fingerprint=NZpCJYrUXLt1ng/AyVy1AYM05e6hbpSugFznAw2uUUeQOr5BN/KHDI9b2JH2qAL7s0sXWQ8PtdAaf65pzdAeXQ==D31x7K3gpLVNdk0a8SfXYntyDcSUM1zLx8iekTgawII=, isWebLogin=true, sid=QA.CAESEN0vhur-_EIDk4NUPqovZTkYpYGR1gYiATEqJGExMWM5OTdiLTg4MGYtNGFjYy05ODNkLTE1MDMzNjFkYTUzMzJA0pTyMnc-4eK2taV0BwHuZWUrWGpPUiuM84wsW-cbv9XKxnkA6QIREgU-AFf9H7-67GiNmPv-6Koir3gLq4TBfjoBMUIIdWJlci5jb20.C9MiyQS_geTKn5SeHC5T2SiPLhvsGSC2_MvV5x6kDq8, smeta={\"expiresAt\":1791246501878}, csid=1.1778286502333.xH64XybBi1XOy9EvZTeci9d0IGq/GvnbGy+U6bdFBxI=, _ua={\"session_id\":\"5329ff0c-1da4-410b-95cb-4fa7ce60131c\",\"session_time_ms\":1775694502339}, jwt-session=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3NzU2OTQ1MDIsImV4cCI6MTc3NTc4MDkwMn0.zO5bAJjhqgF3cJG8kA1AFxP-3u7dFJmp6dcCSFCRb9w",
+    "priority": "u=1, i"
+  },
+  "request_cookies": {
+    "__cf_bm": "K0Tw2cMV6DYIXFG8QBfO2132KLRsdH1cuDIuLwEt7Nk-1775694382-1.0.1.1-u0mmbh1L.ljLbNN6Ss4Pd06cxViXolFuXZVUHfT01GTq2..enFGSduroqnDU3eEOxk9mJAoAaKGd5OphW0yeGPVe5fTA5wve5CAbWH3NtFw",
+    "marketing_vistor_id": "f2c4b505-b369-4ab0-889c-46b20d800698",
+    "x-uber-analytics-session-id": "e215eb71-fb9b-4c8a-85b3-681e8fe4e3b0",
+    "udi-id": "eGLrbJW8Uk6lnSy0DmSSKKTPngJGg9Odpk7HZW7qgorOh1wjURy//2khrI5PiAS7e0EzEYOyXW8ZR83p8X1JlY960T00Gj4mQ+YX5FBMmco/Tq2+lSFLC9BMDNEVioBLo/hC7lU3+315YoM/TevITac0X2r0WTE7Aq2NcCRDfnFBCBcJZKCPAJtyaqrkHRjRi58PiQrZM3GqQQAY5gUeug==0/9qBM20LiZPtAAmuFLcQw==hzO8Rp3VkAsy8AWFZ3vh6L0XHQEtsjW1HSTg1FJY7sA=",
+    "udi-fingerprint": "NZpCJYrUXLt1ng/AyVy1AYM05e6hbpSugFznAw2uUUeQOr5BN/KHDI9b2JH2qAL7s0sXWQ8PtdAaf65pzdAeXQ==D31x7K3gpLVNdk0a8SfXYntyDcSUM1zLx8iekTgawII=",
+    "isWebLogin": "true",
+    "sid": "QA.CAESEN0vhur-_EIDk4NUPqovZTkYpYGR1gYiATEqJGExMWM5OTdiLTg4MGYtNGFjYy05ODNkLTE1MDMzNjFkYTUzMzJA0pTyMnc-4eK2taV0BwHuZWUrWGpPUiuM84wsW-cbv9XKxnkA6QIREgU-AFf9H7-67GiNmPv-6Koir3gLq4TBfjoBMUIIdWJlci5jb20.C9MiyQS_geTKn5SeHC5T2SiPLhvsGSC2_MvV5x6kDq8",
+    "smeta": "{\"expiresAt\":1791246501878}",
+    "csid": "1.1778286502333.xH64XybBi1XOy9EvZTeci9d0IGq/GvnbGy+U6bdFBxI=",
+    "_ua": "{\"session_id\":\"5329ff0c-1da4-410b-95cb-4fa7ce60131c\",\"session_time_ms\":1775694502339}",
+    "jwt-session": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3NzU2OTQ1MDIsImV4cCI6MTc3NTc4MDkwMn0.zO5bAJjhqgF3cJG8kA1AFxP-3u7dFJmp6dcCSFCRb9w"
+  },
+  "request_body": {
+    "startDateIso": "2026-04-06",
+    "endDateIso": "2026-04-13",
+    "paginationOption": {}
+  },
+  "response_headers": {
+    "date": "Thu, 09 Apr 2026 00:28:23 GMT",
+    "content-type": "application/json; charset=utf-8",
+    "cf-ray": "9e956436fa87dda2-HKG",
+    "vary": "Accept-Encoding",
+    "x-frame-options": "SAMEORIGIN",
+    "cache-control": "no-store, max-age=0",
+    "content-encoding": "gzip",
+    "x-envoy-upstream-service-time": "116",
+    "strict-transport-security": "max-age=31536000",
+    "x-content-type-options": "nosniff",
+    "cf-cache-status": "DYNAMIC",
+    "x-uber-edge": "e4-phx52:w:170207745,ufe:production-cloudflare:compute-0:phx6,cloudflare:production:default",
+    "server": "cloudflare"
+  },
+  "response_body": {
+    "status": "success",
+    "data": {
+      "activities": [
+        {
+          "uuid": "221d6e47-3682-439b-8286-51571613bde9",
+          "recognizedAt": 1775616376,
+          "activityTitle": "UberX",
+          "formattedTotal": "HK$100.60",
+          "routing": {
+            "webviewUrl": "https://drivers.uber.com/earnings/trips/221d6e47-3682-439b-8286-51571613bde9",
+            "deeplinkUrl": null
+          },
+          "breakdownDetails": null,
+          "tripMetaData": {
+            "formattedDuration": "24 min(s) 8 sec(s)",
+            "formattedDistance": "12.91 km",
+            "pickupAddress": "\u5ee3\u5584\u8857, Sha Tin District, New Territories",
+            "dropOffAddress": "Kimberley Rd, Tsim Sha Tsui, Kowloon",
+            "mapUrl": "https://maps.googleapis.com/maps/api/staticmap?size=360x100&scale=2&markers=%7Canchor%3Aleft%7Cicon%3Ahttps%3A%2F%2Fd1a3f4spazzrp4.cloudfront.net%2Fmaps%2Fhelix%2Fcar-pickup-pin.png%7Cscale%3A2%7C22.38169%2C114.2135&markers=%7Canchor%3Aleft%7Cicon%3Ahttps%3A%2F%2Fd1a3f4spazzrp4.cloudfront.net%2Fmaps%2Fhelix%2Fcar-dropoff-pin.png%7Cscale%3A2%7C22.30065%2C114.17331&path=color%3A0x2DBAE4FF%7Cweight%3A4%7Cenc%3AqlrgCiibxTEb%40L%7DA_IShA%7CKlNnGnCNfF_BlIoJfGeDpH%7DAlGIruCtd%40%7CUbHd%5CnPrDt%40nHWfTgHjJm%40%60AuBo%40iAqBJkG%60FcDlIPxErHvXbHxGhAjErU%7EVfk%40nyAdp%40%7Ec%40p%40%7ECjOaBb%7C%40%7BCUeG&style=feature%3Aadministrative.locality%7Celement%3Alabels.text%7Ccolor%3A0x556275&style=feature%3Aadministrative.locality%7Celement%3Alabels.text.stroke%7Ccolor%3A0xe9edf3&style=feature%3Aadministrative.neighborhood%7Celement%3Alabels.text.fill%7Ccolor%3A0x90a8dd&style=feature%3Alandscape%7Celement%3Ageometry.fill%7Ccolor%3A0xe6e9ec&style=feature%3Alandscape.man_made%7Celement%3Ageometry.fill%7Ccolor%3A0xe6e9ec&style=feature%3Alandscape.man_made%7Celement%3Ageometry.stroke%7Ccolor%3A0xe6e9ec&style=feature%3Alandscape.natural.terrain%7Ccolor%3A0xe6e9ec%7Cvisibility%3Aoff&style=feature%3Apoi%7Celement%3Ageometry.fill%7Ccolor%3A0xe6e9ec&style=feature%3Apoi%7Celement%3Alabels.icon%7Csaturation%3A-100.0&style=feature%3Apoi%7Celement%3Alabels.text.fill%7Ccolor%3A0x6890df%7Csaturation%3A-65.0%7Clightness%3A-20.0&style=feature%3Apoi.park%7Celement%3Ageometry.fill%7Ccolor%3A0xa7dfb6&style=feature%3Apoi.park%7Celement%3Alabels.text.fill%7Ccolor%3A0x5ea678%7Csaturation%3A-25.0&style=feature%3Aroad%7Celement%3Alabels.icon%7Csaturation%3A-30.0%7Clightness%3A10.0&style=feature%3Aroad%7Celement%3Alabels.text.fill%7Ccolor%3A0x40484d&style=feature%3Aroad.arterial%7Celement%3Ageometry.fill%7Ccolor%3A0xffffff&style=feature%3Aroad.arterial%7Celement%3Ageometry.stroke%7Ccolor%3A0xffffff&style=feature%3Aroad.highway%7Celement%3Ageometry.fill%7Ccolor%3A0xa6b5db&style=feature%3Aroad.highway%7Celement%3Ageometry.stroke%7Ccolor%3A0x96acd0&style=feature%3Aroad.highway.controlled_access%7Celement%3Ageometry.fill%7Ccolor%3A0x8b9fd4&style=feature%3Aroad.highway.controlled_access%7Celement%3Ageometry.stroke%7Ccolor%3A0x7996c9&style=feature%3Aroad.local%7Celement%3Ageometry.fill%7Ccolor%3A0xffffff&style=feature%3Aroad.local%7Celement%3Ageometry.stroke%7Ccolor%3A0xffffff&style=feature%3Atransit%7Celement%3Alabels.icon%7Csaturation%3A-65.0&style=feature%3Atransit.line%7Celement%3Ageometry.fill%7Ccolor%3A0x29b4e3%7Csaturation%3A-60.0%7Clightness%3A60.0&style=feature%3Atransit.line%7Celement%3Ageometry.stroke%7Ccolor%3A0x29b4e3%7Csaturation%3A-60.0%7Clightness%3A60.0&style=feature%3Atransit.station.airport%7Celement%3Ageometry.fill%7Ccolor%3A0xc9d4e3&style=feature%3Atransit.station.rail%7Celement%3Alabels.text%7Csaturation%3A-40.0%7Clightness%3A5.0&style=feature%3Awater%7Celement%3Ageometry.fill%7Ccolor%3A0xacd5f5&experience=221d6e47-3682-439b-8286-51571613bde9&key=AIzaSyDU50VAD4HVefGeUpMlFxuCbsCvMrPzwZA&signature=I3jzGOjiAiVv3E708A6xRyXjBK0="
+          },
+          "type": "TRIP",
+          "status": "COMPLETED"
+        },
+        {
+          "uuid": "edd20711-2eea-499a-8b7c-94cc97b47e78",
+          "recognizedAt": 1775614901,
+          "activityTitle": "UberX",
+          "formattedTotal": "HK$117.30",
+          "routing": {
+            "webviewUrl": "https://drivers.uber.com/earnings/trips/edd20711-2eea-499a-8b7c-94cc97b47e78",
+            "deeplinkUrl": null
+          },
+          "breakdownDetails": null,
+          "tripMetaData": {
+            "formattedDuration": "22 min(s) 18 sec(s)",
+            "formattedDistance": "19.91 km",
+            "pickupAddress": "Shing Hong Ln, Eastern District, Hong Kong",
+            "dropOffAddress": "Hang Shin Link, Siu Lek Yuen, New Territories",
+            "mapUrl": "https://maps.googleapis.com/maps/api/staticmap?size=360x100&scale=2&markers=%7Canchor%3Atop%7Cicon%3Ahttps%3A%2F%2Fd1a3f4spazzrp4.cloudfront.net%2Fmaps%2Fhelix%2Fcar-pickup-pin.png%7Cscale%3A2%7C22.27886%2C114.2395&markers=%7Canchor%3Atop%7Cicon%3Ahttps%3A%2F%2Fd1a3f4spazzrp4.cloudfront.net%2Fmaps%2Fhelix%2Fcar-dropoff-pin.png%7Cscale%3A2%7C22.37851%2C114.21221&path=color%3A0x2DBAE4FF%7Cweight%3A4%7Cenc%3A%7Bi%7EfC%7BkgxTt%40vCqB%7CBHjA%7CFbHhAf%40x%40a%40%7D%40eBkJvAeO%60KyBtCy%40pDd%40pFxBjDnKbDrBnBz%40nCKrEgObW%7DJ%7CHiGhCkMHkD%60D%7BEz%5BR%7CD%7EEpJYvByBdBsCS%7BAaByv%40gkBgO_%5B_CaC%7BEmAoEf%40mEpCaSbQ%7D%40fCIpDjC%60Q%60M%7CTw%40zH%7B%5DbW%7D%5Cb%5CsDtGo%40vLqAdEa%5BfZqRfAeRiEaIr%40%7BVWqXvHyIZaEq%40w%5DiPoNkEg%7ECof%40kHj%40eHdCyLrL%7BMbFaCfCfExHjEkFeGiQdAkF%60AJn%40%7EAtGc%40&style=feature%3Aadministrative.locality%7Celement%3Alabels.text%7Ccolor%3A0x556275&style=feature%3Aadministrative.locality%7Celement%3Alabels.text.stroke%7Ccolor%3A0xe9edf3&style=feature%3Aadministrative.neighborhood%7Celement%3Alabels.text.fill%7Ccolor%3A0x90a8dd&style=feature%3Alandscape%7Celement%3Ageometry.fill%7Ccolor%3A0xe6e9ec&style=feature%3Alandscape.man_made%7Celement%3Ageometry.fill%7Ccolor%3A0xe6e9ec&style=feature%3Alandscape.man_made%7Celement%3Ageometry.stroke%7Ccolor%3A0xe6e9ec&style=feature%3Alandscape.natural.terrain%7Ccolor%3A0xe6e9ec%7Cvisibility%3Aoff&style=feature%3Apoi%7Celement%3Ageometry.fill%7Ccolor%3A0xe6e9ec&style=feature%3Apoi%7Celement%3Alabels.icon%7Csaturation%3A-100.0&style=feature%3Apoi%7Celement%3Alabels.text.fill%7Ccolor%3A0x6890df%7Csaturation%3A-65.0%7Clightness%3A-20.0&style=feature%3Apoi.park%7Celement%3Ageometry.fill%7Ccolor%3A0xa7dfb6&style=feature%3Apoi.park%7Celement%3Alabels.text.fill%7Ccolor%3A0x5ea678%7Csaturation%3A-25.0&style=feature%3Aroad%7Celement%3Alabels.icon%7Csaturation%3A-30.0%7Clightness%3A10.0&style=feature%3Aroad%7Celement%3Alabels.text.fill%7Ccolor%3A0x40484d&style=feature%3Aroad.arterial%7Celement%3Ageometry.fill%7Ccolor%3A0xffffff&style=feature%3Aroad.arterial%7Celement%3Ageometry.stroke%7Ccolor%3A0xffffff&style=feature%3Aroad.highway%7Celement%3Ageometry.fill%7Ccolor%3A0xa6b5db&style=feature%3Aroad.highway%7Celement%3Ageometry.stroke%7Ccolor%3A0x96acd0&style=feature%3Aroad.highway.controlled_access%7Celement%3Ageometry.fill%7Ccolor%3A0x8b9fd4&style=feature%3Aroad.highway.controlled_access%7Celement%3Ageometry.stroke%7Ccolor%3A0x7996c9&style=feature%3Aroad.local%7Celement%3Ageometry.fill%7Ccolor%3A0xffffff&style=feature%3Aroad.local%7Celement%3Ageometry.stroke%7Ccolor%3A0xffffff&style=feature%3Atransit%7Celement%3Alabels.icon%7Csaturation%3A-65.0&style=feature%3Atransit.line%7Celement%3Ageometry.fill%7Ccolor%3A0x29b4e3%7Csaturation%3A-60.0%7Clightness%3A60.0&style=feature%3Atransit.line%7Celement%3Ageometry.stroke%7Ccolor%3A0x29b4e3%7Csaturation%3A-60.0%7Clightness%3A60.0&style=feature%3Atransit.station.airport%7Celement%3Ageometry.fill%7Ccolor%3A0xc9d4e3&style=feature%3Atransit.station.rail%7Celement%3Alabels.text%7Csaturation%3A-40.0%7Clightness%3A5.0&style=feature%3Awater%7Celement%3Ageometry.fill%7Ccolor%3A0xacd5f5&experience=edd20711-2eea-499a-8b7c-94cc97b47e78&key=AIzaSyDU50VAD4HVefGeUpMlFxuCbsCvMrPzwZA&signature=ujFIBx88HufxzHkL_wP502mb_1Y="
+          },
+          "type": "TRIP",
+          "status": "COMPLETED"
+        },
+        {
+          "uuid": "e7c2fb59-3336-42e1-956e-b72e0f6ac7ab",
+          "recognizedAt": 1775569298,
+          "activityTitle": "UberX",
+          "formattedTotal": "HK$64.50",
+          "routing": {
+            "webviewUrl": "https://drivers.uber.com/earnings/trips/e7c2fb59-3336-42e1-956e-b72e0f6ac7ab",
+            "deeplinkUrl": null
+          },
+          "breakdownDetails": null,
+          "tripMetaData": {
+            "formattedDuration": "11 min(s) 10 sec(s)",
+            "formattedDistance": "8.13 km",
+            "pickupAddress": "Hong Shing St, Eastern District, Hong Kong",
+            "dropOffAddress": "Siu Sai Wan, Hong Kong Island",
+            "mapUrl": "https://maps.googleapis.com/maps/api/staticmap?size=360x100&scale=2&markers=%7Canchor%3Aleft%7Cicon%3Ahttps%3A%2F%2Fd1a3f4spazzrp4.cloudfront.net%2Fmaps%2Fhelix%2Fcar-pickup-pin.png%7Cscale%3A2%7C22.28005%2C114.21396&markers=%7Canchor%3Aleft%7Cicon%3Ahttps%3A%2F%2Fd1a3f4spazzrp4.cloudfront.net%2Fmaps%2Fhelix%2Fcar-dropoff-pin.png%7Cscale%3A2%7C22.26478%2C114.24802&path=color%3A0x2DBAE4FF%7Cweight%3A4%7Cenc%3Agq%7EfCglbxTyDcKaIQWgDoG_JBoEcHsH%7BGO_DhA_BrCaBxMh%40bAxDB%7C%40qCpE%3F%3F%7CH%7DE%3Fq%40sC%7DGjCaBqAlEeUtAmCjDeBxL%3F%7CDeAdLkIlOuVHyDyAaEsL%7DD_DyDq%40%7DFv%40mE%7CDyEnL%7BHtN%7DDlOsKtGc%40%7EMpCvCa%40pGqObNgKn%40oBUiLzEiJ&style=feature%3Aadministrative.locality%7Celement%3Alabels.text%7Ccolor%3A0x556275&style=feature%3Aadministrative.locality%7Celement%3Alabels.text.stroke%7Ccolor%3A0xe9edf3&style=feature%3Aadministrative.neighborhood%7Celement%3Alabels.text.fill%7Ccolor%3A0x90a8dd&style=feature%3Alandscape%7Celement%3Ageometry.fill%7Ccolor%3A0xe6e9ec&style=feature%3Alandscape.man_made%7Celement%3Ageometry.fill%7Ccolor%3A0xe6e9ec&style=feature%3Alandscape.man_made%7Celement%3Ageometry.stroke%7Ccolor%3A0xe6e9ec&style=feature%3Alandscape.natural.terrain%7Ccolor%3A0xe6e9ec%7Cvisibility%3Aoff&style=feature%3Apoi%7Celement%3Ageometry.fill%7Ccolor%3A0xe6e9ec&style=feature%3Apoi%7Celement%3Alabels.icon%7Csaturation%3A-100.0&style=feature%3Apoi%7Celement%3Alabels.text.fill%7Ccolor%3A0x6890df%7Csaturation%3A-65.0%7Clightness%3A-20.0&style=feature%3Apoi.park%7Celement%3Ageometry.fill%7Ccolor%3A0xa7dfb6&style=feature%3Apoi.park%7Celement%3Alabels.text.fill%7Ccolor%3A0x5ea678%7Csaturation%3A-25.0&style=feature%3Aroad%7Celement%3Alabels.icon%7Csaturation%3A-30.0%7Clightness%3A10.0&style=feature%3Aroad%7Celement%3Alabels.text.fill%7Ccolor%3A0x40484d&style=feature%3Aroad.arterial%7Celement%3Ageometry.fill%7Ccolor%3A0xffffff&style=feature%3Aroad.arterial%7Celement%3Ageometry.stroke%7Ccolor%3A0xffffff&style=feature%3Aroad.highway%7Celement%3Ageometry.fill%7Ccolor%3A0xa6b5db&style=feature%3Aroad.highway%7Celement%3Ageometry.stroke%7Ccolor%3A0x96acd0&style=feature%3Aroad.highway.controlled_access%7Celement%3Ageometry.fill%7Ccolor%3A0x8b9fd4&style=feature%3Aroad.highway.controlled_access%7Celement%3Ageometry.stroke%7Ccolor%3A0x7996c9&style=feature%3Aroad.local%7Celement%3Ageometry.fill%7Ccolor%3A0xffffff&style=feature%3Aroad.local%7Celement%3Ageometry.stroke%7Ccolor%3A0xffffff&style=feature%3Atransit%7Celement%3Alabels.icon%7Csaturation%3A-65.0&style=feature%3Atransit.line%7Celement%3Ageometry.fill%7Ccolor%3A0x29b4e3%7Csaturation%3A-60.0%7Clightness%3A60.0&style=feature%3Atransit.line%7Celement%3Ageometry.stroke%7Ccolor%3A0x29b4e3%7Csaturation%3A-60.0%7Clightness%3A60.0&style=feature%3Atransit.station.airport%7Celement%3Ageometry.fill%7Ccolor%3A0xc9d4e3&style=feature%3Atransit.station.rail%7Celement%3Alabels.text%7Csaturation%3A-40.0%7Clightness%3A5.0&style=feature%3Awater%7Celement%3Ageometry.fill%7Ccolor%3A0xacd5f5&experience=e7c2fb59-3336-42e1-956e-b72e0f6ac7ab&key=AIzaSyDU50VAD4HVefGeUpMlFxuCbsCvMrPzwZA&signature=twSeO5dx-MZqarb_Qy_-t67UwJ4="
+          },
+          "type": "TRIP",
+          "status": "COMPLETED"
+        },
+        {
+          "uuid": "5d3c6cce-64c3-408e-aad7-1c1f3ab0212a",
+          "recognizedAt": 1775551727,
+          "activityTitle": "UberX",
+          "formattedTotal": "HK$55.44",
+          "routing": {
+            "webviewUrl": "https://drivers.uber.com/earnings/trips/5d3c6cce-64c3-408e-aad7-1c1f3ab0212a",
+            "deeplinkUrl": null
+          },
+          "breakdownDetails": null,
+          "tripMetaData": {
+            "formattedDuration": "9 min(s) 7 sec(s)",
+            "formattedDistance": "7.04 km",
+            "pickupAddress": "Man Cheung St, Central & Western District, Hong Kong",
+            "dropOffAddress": "King's Rd, Quarry Bay, Hong Kong Island",
+            "mapUrl": "https://maps.googleapis.com/maps/api/staticmap?size=360x100&scale=2&markers=%7Canchor%3Acenter%7Cicon%3Ahttps%3A%2F%2Fd1a3f4spazzrp4.cloudfront.net%2Fmaps%2Fhelix%2Fcar-pickup-pin.png%7Cscale%3A2%7C22.28475%2C114.15847&markers=%7Canchor%3Acenter%7Cicon%3Ahttps%3A%2F%2Fd1a3f4spazzrp4.cloudfront.net%2Fmaps%2Fhelix%2Fcar-dropoff-pin.png%7Cscale%3A2%7C22.28929%2C114.2097&path=color%3A0x2DBAE4FF%7Cweight%3A4%7Cenc%3Asn_gCmqwwT%7DBjEHxDrM%7BIlHa%5BjIgOxAun%40uBaZmCoIsGoGNeMaBoGmGwIeCsN_DgDeKaAwMkG_M%7DN%7BEkKoHat%40rAiB%60F_A%60Gw%5B%7EDElGaB&style=feature%3Aadministrative.locality%7Celement%3Alabels.text%7Ccolor%3A0x556275&style=feature%3Aadministrative.locality%7Celement%3Alabels.text.stroke%7Ccolor%3A0xe9edf3&style=feature%3Aadministrative.neighborhood%7Celement%3Alabels.text.fill%7Ccolor%3A0x90a8dd&style=feature%3Alandscape%7Celement%3Ageometry.fill%7Ccolor%3A0xe6e9ec&style=feature%3Alandscape.man_made%7Celement%3Ageometry.fill%7Ccolor%3A0xe6e9ec&style=feature%3Alandscape.man_made%7Celement%3Ageometry.stroke%7Ccolor%3A0xe6e9ec&style=feature%3Alandscape.natural.terrain%7Ccolor%3A0xe6e9ec%7Cvisibility%3Aoff&style=feature%3Apoi%7Celement%3Ageometry.fill%7Ccolor%3A0xe6e9ec&style=feature%3Apoi%7Celement%3Alabels.icon%7Csaturation%3A-100.0&style=feature%3Apoi%7Celement%3Alabels.text.fill%7Ccolor%3A0x6890df%7Csaturation%3A-65.0%7Clightness%3A-20.0&style=feature%3Apoi.park%7Celement%3Ageometry.fill%7Ccolor%3A0xa7dfb6&style=feature%3Apoi.park%7Celement%3Alabels.text.fill%7Ccolor%3A0x5ea678%7Csaturation%3A-25.0&style=feature%3Aroad%7Celement%3Alabels.icon%7Csaturation%3A-30.0%7Clightness%3A10.0&style=feature%3Aroad%7Celement%3Alabels.text.fill%7Ccolor%3A0x40484d&style=feature%3Aroad.arterial%7Celement%3Ageometry.fill%7Ccolor%3A0xffffff&style=feature%3Aroad.arterial%7Celement%3Ageometry.stroke%7Ccolor%3A0xffffff&style=feature%3Aroad.highway%7Celement%3Ageometry.fill%7Ccolor%3A0xa6b5db&style=feature%3Aroad.highway%7Celement%3Ageometry.stroke%7Ccolor%3A0x96acd0&style=feature%3Aroad.highway.controlled_access%7Celement%3Ageometry.fill%7Ccolor%3A0x8b9fd4&style=feature%3Aroad.highway.controlled_access%7Celement%3Ageometry.stroke%7Ccolor%3A0x7996c9&style=feature%3Aroad.local%7Celement%3Ageometry.fill%7Ccolor%3A0xffffff&style=feature%3Aroad.local%7Celement%3Ageometry.stroke%7Ccolor%3A0xffffff&style=feature%3Atransit%7Celement%3Alabels.icon%7Csaturation%3A-65.0&style=feature%3Atransit.line%7Celement%3Ageometry.fill%7Ccolor%3A0x29b4e3%7Csaturation%3A-60.0%7Clightness%3A60.0&style=feature%3Atransit.line%7Celement%3Ageometry.stroke%7Ccolor%3A0x29b4e3%7Csaturation%3A-60.0%7Clightness%3A60.0&style=feature%3Atransit.station.airport%7Celement%3Ageometry.fill%7Ccolor%3A0xc9d4e3&style=feature%3Atransit.station.rail%7Celement%3Alabels.text%7Csaturation%3A-40.0%7Clightness%3A5.0&style=feature%3Awater%7Celement%3Ageometry.fill%7Ccolor%3A0xacd5f5&experience=5d3c6cce-64c3-408e-aad7-1c1f3ab0212a&key=AIzaSyDU50VAD4HVefGeUpMlFxuCbsCvMrPzwZA&signature=7vGdqE3EpI-1X3Kbk4k9egQY3AU="
+          },
+          "type": "TRIP",
+          "status": "COMPLETED"
+        },
+        {
+          "uuid": "62dc6767-7cd5-480e-9746-50a9a2813b44",
+          "recognizedAt": 1775545106,
+          "activityTitle": "UberX",
+          "formattedTotal": "HK$100.09",
+          "routing": {
+            "webviewUrl": "https://drivers.uber.com/earnings/trips/62dc6767-7cd5-480e-9746-50a9a2813b44",
+            "deeplinkUrl": null
+          },
+          "breakdownDetails": null,
+          "tripMetaData": {
+            "formattedDuration": "16 min(s) 52 sec(s)",
+            "formattedDistance": "11.71 km",
+            "pickupAddress": "\u9999\u6e2f\u5cf6\u5927\u5751\u5b8f\u8c50\u81fa",
+            "dropOffAddress": "\u4e5d\u9f8d\u4e5d\u9f8d\u7063\u5e38\u6021\u9053",
+            "mapUrl": "https://maps.googleapis.com/maps/api/staticmap?size=360x100&scale=2&markers=%7Canchor%3Aright%7Cicon%3Ahttps%3A%2F%2Fd1a3f4spazzrp4.cloudfront.net%2Fmaps%2Fhelix%2Fcar-pickup-pin.png%7Cscale%3A2%7C22.27583%2C114.19183&markers=%7Canchor%3Aright%7Cicon%3Ahttps%3A%2F%2Fd1a3f4spazzrp4.cloudfront.net%2Fmaps%2Fhelix%2Fcar-dropoff-pin.png%7Cscale%3A2%7C22.3192%2C114.20843&path=color%3A0x2DBAE4FF%7Cweight%3A4%7Cenc%3A%7Dv%7DfC%7Da%7EwTcDfAnBQo%40l%40oBa%40bD%7DG%7D%40%7BFaAu%40%7BFxT%7BKpMb%40%7CFwUhIbG%7EJfLdd%40I%7C%40yCtAh%40jOxC%5B%7C%40kA%5DsHeDmMoImIuC%7BIyGgDkkBlQoW_GcBd%40wFvGmAB%7B%40aAYaLkLkPoTmL%7DKiB%7DZoNgRgGgDmEt%40kx%40fCeGpNeQa%40%7BAwAFQ%7DFpLm%40%60%40qB&style=feature%3Aadministrative.locality%7Celement%3Alabels.text%7Ccolor%3A0x556275&style=feature%3Aadministrative.locality%7Celement%3Alabels.text.stroke%7Ccolor%3A0xe9edf3&style=feature%3Aadministrative.neighborhood%7Celement%3Alabels.text.fill%7Ccolor%3A0x90a8dd&style=feature%3Alandscape%7Celement%3Ageometry.fill%7Ccolor%3A0xe6e9ec&style=feature%3Alandscape.man_made%7Celement%3Ageometry.fill%7Ccolor%3A0xe6e9ec&style=feature%3Alandscape.man_made%7Celement%3Ageometry.stroke%7Ccolor%3A0xe6e9ec&style=feature%3Alandscape.natural.terrain%7Ccolor%3A0xe6e9ec%7Cvisibility%3Aoff&style=feature%3Apoi%7Celement%3Ageometry.fill%7Ccolor%3A0xe6e9ec&style=feature%3Apoi%7Celement%3Alabels.icon%7Csaturation%3A-100.0&style=feature%3Apoi%7Celement%3Alabels.text.fill%7Ccolor%3A0x6890df%7Csaturation%3A-65.0%7Clightness%3A-20.0&style=feature%3Apoi.park%7Celement%3Ageometry.fill%7Ccolor%3A0xa7dfb6&style=feature%3Apoi.park%7Celement%3Alabels.text.fill%7Ccolor%3A0x5ea678%7Csaturation%3A-25.0&style=feature%3Aroad%7Celement%3Alabels.icon%7Csaturation%3A-30.0%7Clightness%3A10.0&style=feature%3Aroad%7Celement%3Alabels.text.fill%7Ccolor%3A0x40484d&style=feature%3Aroad.arterial%7Celement%3Ageometry.fill%7Ccolor%3A0xffffff&style=feature%3Aroad.arterial%7Celement%3Ageometry.stroke%7Ccolor%3A0xffffff&style=feature%3Aroad.highway%7Celement%3Ageometry.fill%7Ccolor%3A0xa6b5db&style=feature%3Aroad.highway%7Celement%3Ageometry.stroke%7Ccolor%3A0x96acd0&style=feature%3Aroad.highway.controlled_access%7Celement%3Ageometry.fill%7Ccolor%3A0x8b9fd4&style=feature%3Aroad.highway.controlled_access%7Celement%3Ageometry.stroke%7Ccolor%3A0x7996c9&style=feature%3Aroad.local%7Celement%3Ageometry.fill%7Ccolor%3A0xffffff&style=feature%3Aroad.local%7Celement%3Ageometry.stroke%7Ccolor%3A0xffffff&style=feature%3Atransit%7Celement%3Alabels.icon%7Csaturation%3A-65.0&style=feature%3Atransit.line%7Celement%3Ageometry.fill%7Ccolor%3A0x29b4e3%7Csaturation%3A-60.0%7Clightness%3A60.0&style=feature%3Atransit.line%7Celement%3Ageometry.stroke%7Ccolor%3A0x29b4e3%7Csaturation%3A-60.0%7Clightness%3A60.0&style=feature%3Atransit.station.airport%7Celement%3Ageometry.fill%7Ccolor%3A0xc9d4e3&style=feature%3Atransit.station.rail%7Celement%3Alabels.text%7Csaturation%3A-40.0%7Clightness%3A5.0&style=feature%3Awater%7Celement%3Ageometry.fill%7Ccolor%3A0xacd5f5&experience=62dc6767-7cd5-480e-9746-50a9a2813b44&key=AIzaSyDU50VAD4HVefGeUpMlFxuCbsCvMrPzwZA&signature=DluN9NnV-YwCpB5NWLynLJm48KQ="
+          },
+          "type": "TRIP",
+          "status": "COMPLETED"
+        },
+        {
+          "uuid": "2034b285-c28f-480b-99c2-d7e03c63c6b9",
+          "recognizedAt": 1775528354,
+          "activityTitle": "UberX",
+          "formattedTotal": "HK$96.04",
+          "routing": {
+            "webviewUrl": "https://drivers.uber.com/earnings/trips/2034b285-c28f-480b-99c2-d7e03c63c6b9",
+            "deeplinkUrl": null
+          },
+          "breakdownDetails": null,
+          "tripMetaData": {
+            "formattedDuration": "15 min(s) 12 sec(s)",
+            "formattedDistance": "12.10 km",
+            "pickupAddress": "Hong Yue St, Eastern District, Hong Kong",
+            "dropOffAddress": "Tsim Sha Tsui, Kowloon",
+            "mapUrl": "https://maps.googleapis.com/maps/api/staticmap?size=360x100&scale=2&markers=%7Canchor%3Abottom%7Cicon%3Ahttps%3A%2F%2Fd1a3f4spazzrp4.cloudfront.net%2Fmaps%2Fhelix%2Fcar-pickup-pin.png%7Cscale%3A2%7C22.28337%2C114.2175&markers=%7Canchor%3Abottom%7Cicon%3Ahttps%3A%2F%2Fd1a3f4spazzrp4.cloudfront.net%2Fmaps%2Fhelix%2Fcar-dropoff-pin.png%7Cscale%3A2%7C22.30097%2C114.15631&path=color%3A0x2DBAE4FF%7Cweight%3A4%7Cenc%3Aaf_gCkbcxTmC%7BEFmE_G_HeKWuCfCmAzBmEd_%40yDpLuMhVkGvYSjG%7CC%7E_%40%7ED%7CTv%5Dx%5CzKpA%7CCnBbDdO%7CIfObHrY_CViEyGaCcImH_EkkBjQeDQ_QkFsBn%40m%40%60C%60ClIkFpYf%40jDjFtIp%40bHyJbx%40%60%5D%7CL%7CGlL%5BxC&style=feature%3Aadministrative.locality%7Celement%3Alabels.text%7Ccolor%3A0x556275&style=feature%3Aadministrative.locality%7Celement%3Alabels.text.stroke%7Ccolor%3A0xe9edf3&style=feature%3Aadministrative.neighborhood%7Celement%3Alabels.text.fill%7Ccolor%3A0x90a8dd&style=feature%3Alandscape%7Celement%3Ageometry.fill%7Ccolor%3A0xe6e9ec&style=feature%3Alandscape.man_made%7Celement%3Ageometry.fill%7Ccolor%3A0xe6e9ec&style=feature%3Alandscape.man_made%7Celement%3Ageometry.stroke%7Ccolor%3A0xe6e9ec&style=feature%3Alandscape.natural.terrain%7Ccolor%3A0xe6e9ec%7Cvisibility%3Aoff&style=feature%3Apoi%7Celement%3Ageometry.fill%7Ccolor%3A0xe6e9ec&style=feature%3Apoi%7Celement%3Alabels.icon%7Csaturation%3A-100.0&style=feature%3Apoi%7Celement%3Alabels.text.fill%7Ccolor%3A0x6890df%7Csaturation%3A-65.0%7Clightness%3A-20.0&style=feature%3Apoi.park%7Celement%3Ageometry.fill%7Ccolor%3A0xa7dfb6&style=feature%3Apoi.park%7Celement%3Alabels.text.fill%7Ccolor%3A0x5ea678%7Csaturation%3A-25.0&style=feature%3Aroad%7Celement%3Alabels.icon%7Csaturation%3A-30.0%7Clightness%3A10.0&style=feature%3Aroad%7Celement%3Alabels.text.fill%7Ccolor%3A0x40484d&style=feature%3Aroad.arterial%7Celement%3Ageometry.fill%7Ccolor%3A0xffffff&style=feature%3Aroad.arterial%7Celement%3Ageometry.stroke%7Ccolor%3A0xffffff&style=feature%3Aroad.highway%7Celement%3Ageometry.fill%7Ccolor%3A0xa6b5db&style=feature%3Aroad.highway%7Celement%3Ageometry.stroke%7Ccolor%3A0x96acd0&style=feature%3Aroad.highway.controlled_access%7Celement%3Ageometry.fill%7Ccolor%3A0x8b9fd4&style=feature%3Aroad.highway.controlled_access%7Celement%3Ageometry.stroke%7Ccolor%3A0x7996c9&style=feature%3Aroad.local%7Celement%3Ageometry.fill%7Ccolor%3A0xffffff&style=feature%3Aroad.local%7Celement%3Ageometry.stroke%7Ccolor%3A0xffffff&style=feature%3Atransit%7Celement%3Alabels.icon%7Csaturation%3A-65.0&style=feature%3Atransit.line%7Celement%3Ageometry.fill%7Ccolor%3A0x29b4e3%7Csaturation%3A-60.0%7Clightness%3A60.0&style=feature%3Atransit.line%7Celement%3Ageometry.stroke%7Ccolor%3A0x29b4e3%7Csaturation%3A-60.0%7Clightness%3A60.0&style=feature%3Atransit.station.airport%7Celement%3Ageometry.fill%7Ccolor%3A0xc9d4e3&style=feature%3Atransit.station.rail%7Celement%3Alabels.text%7Csaturation%3A-40.0%7Clightness%3A5.0&style=feature%3Awater%7Celement%3Ageometry.fill%7Ccolor%3A0xacd5f5&experience=2034b285-c28f-480b-99c2-d7e03c63c6b9&key=AIzaSyDU50VAD4HVefGeUpMlFxuCbsCvMrPzwZA&signature=-xBzmbTqvdCGhci3WKud5OhNVh0="
+          },
+          "type": "TRIP",
+          "status": "COMPLETED"
+        }
+      ],
+      "pagination": {
+        "hasMoreData": true,
+        "nextCursor": "1775419200|1775528353",
+        "lastProcessedDate": null
+      },
+      "isBeforeCutoff": false
+    }
+  },
+  "content_type": "application/json; charset=utf-8",
+  "duration_ms": 328.6
+}

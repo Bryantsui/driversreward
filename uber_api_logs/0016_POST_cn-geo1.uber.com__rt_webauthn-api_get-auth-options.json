@@ -1,0 +1,69 @@
+{
+  "seq": 16,
+  "timestamp": "2026-04-09T08:26:24.097365",
+  "method": "POST",
+  "url": "https://cn-geo1.uber.com/rt/webauthn-api/get-auth-options",
+  "host": "cn-geo1.uber.com",
+  "path": "/rt/webauthn-api/get-auth-options",
+  "status_code": 200,
+  "request_headers": {
+    "content-length": "14",
+    "x-uber-device": "undefined",
+    "sec-ch-ua-platform": "\"macOS\"",
+    "sec-ch-ua": "\"Chromium\";v=\"146\", \"Not-A.Brand\";v=\"24\", \"Google Chrome\";v=\"146\"",
+    "sec-ch-ua-mobile": "?0",
+    "x-uber-client-name": "usl_desktop",
+    "x-uber-request-uuid": "b22f8999-d7ba-454b-b222-d4f5a0583053",
+    "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
+    "content-type": "application/json",
+    "accept": "*/*",
+    "origin": "https://auth.uber.com",
+    "sec-fetch-site": "same-site",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-dest": "empty",
+    "referer": "https://auth.uber.com/",
+    "accept-encoding": "gzip, deflate, br, zstd",
+    "accept-language": "en-GB,en-US;q=0.9,en;q=0.8",
+    "priority": "u=1, i"
+  },
+  "request_cookies": {},
+  "request_body": {
+    "request": {}
+  },
+  "response_headers": {
+    "date": "Thu, 09 Apr 2026 00:26:24 GMT",
+    "content-type": "application/json",
+    "vary": "Accept-Encoding",
+    "rpc-service": "edge-gateway-http",
+    "x-request-id": "58322878-d2bd-4301-82c3-1e1be2827c25",
+    "x-uber-app": "edge-gateway-http",
+    "x-uber-rtapi-duration": "6",
+    "access-control-allow-headers": "Accept, Origin, Keep-Alive, Content-Type, X-Uber-Analytics-Session-Id, X-Uber-App-Device-Id, X-Uber-App-Variant, X-Uber-Challenge-Provider, X-Uber-Challenge-Token, X-Uber-Cit, X-Uber-Client-Claim, X-Uber-Client-Id, X-Uber-Client-Name, X-Uber-Client-Version, X-Uber-Cold-Launch-Id, X-Uber-Dcurl, X-Uber-Device, X-Uber-Device-Epoch, X-Uber-Device-Id, X-Uber-Device-Ids, X-Uber-Device-Language, X-Uber-Device-Location-Accuracy, X-Uber-Device-Location-Altitude, X-Uber-Device-Location-Course, X-Uber-Device-Location-Latitude, X-Uber-Device-Location-Longitude, X-Uber-Device-Location-Provider, X-Uber-Device-Location-Speed, X-Uber-Device-Model, X-Uber-Device-Os, X-Uber-Device-UDID, X-Uber-Did, X-Uber-Hot-Launch-Id, X-Uber-Launch-Id, X-Uber-Marketing-Id, X-Uber-Request-UUID, X-Uber-Redirectcount, X-Uber-Privileged-Op-Url, X-Uber-Pwv-Instance-Id, X-Uber-Pwv-Client-Id, X-Uber-Sig-Status, X-Uber-Target-Location-Latitude, X-Uber-Target-Location-Longitude, X-Uber-Usl-Id, X-Uber-User-Cloud-Id, X-Uber-User-Identifier, X-Uber-Test-Identity, X-Recaptcha-Token, X-Uber-Token",
+    "access-control-allow-methods": "OPTIONS, GET, HEAD, POST",
+    "access-control-allow-origin": "https://auth.uber.com",
+    "access-control-max-age": "86400",
+    "content-encoding": "gzip",
+    "x-envoy-upstream-service-time": "11",
+    "strict-transport-security": "max-age=31536000",
+    "x-content-type-options": "nosniff",
+    "server": "ufe",
+    "via": "1.1 google",
+    "x-uber-edge": "e4-phx51:p:1797984855,ufe:production-gcp:compute-0:phx6,gcp:production:phx51",
+    "alt-svc": "h3=\":443\"; ma=2592000"
+  },
+  "response_body": {
+    "options": {
+      "challenge": "RkOyJpV75cPRtyrCX2FPcmUdP_h6ZPd8igVrblU6GpP1ep4KMeWEi6_pJLaezIq45FT07-9NHEyAUpG4Gx0rgXBz76I4wjXtus1ymU0bvfZeLVJO58OA_A4yb9zWAhWgZOxRplvdjLYt9AOkNEGXfdk84SoiD-Q=",
+      "timeout": {
+        "high": 0,
+        "low": 60000,
+        "unsigned": false
+      },
+      "rp_id": "uber.com",
+      "allow_credentials": null,
+      "user_verification": "required"
+    }
+  },
+  "content_type": "application/json",
+  "duration_ms": 226.5
+}

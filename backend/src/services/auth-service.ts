@@ -30,9 +30,10 @@ function hashToken(token: string): string {
 }
 
 export async function registerDriver(input: RegisterInput, ip?: string, userAgent?: string) {
-  const existing = await prisma.driver.findUnique({ where: { email: input.email } });
+  const normalizedPhone = normalizePhone(input.phone);
+  const existing = await prisma.driver.findUnique({ where: { phone: normalizedPhone } });
   if (existing) {
-    throw new AppError(409, 'Email already registered', 'EMAIL_EXISTS');
+    throw new AppError(409, 'Phone number already registered', 'PHONE_EXISTS');
   }
 
   const passwordHash = await bcrypt.hash(input.password, SALT_ROUNDS);
@@ -55,7 +56,7 @@ export async function registerDriver(input: RegisterInput, ip?: string, userAgen
         email: input.email,
         passwordHash,
         nameEncrypted,
-        phone: input.phone,
+        phone: normalizedPhone,
         region: input.region,
         referralCode: generateReferralCode(),
         referredBy: referrerId,
@@ -103,6 +104,7 @@ export async function registerDriver(input: RegisterInput, ip?: string, userAgen
   return {
     driver: {
       id: driver.id,
+      phone: driver.phone,
       email: driver.email,
       region: driver.region,
       referralCode: driver.referralCode,
@@ -113,8 +115,13 @@ export async function registerDriver(input: RegisterInput, ip?: string, userAgen
   };
 }
 
-export async function loginDriver(email: string, password: string, ip?: string, userAgent?: string) {
-  const driver = await prisma.driver.findUnique({ where: { email } });
+function normalizePhone(phone: string): string {
+  return phone.startsWith('+') ? phone : `+${phone}`;
+}
+
+export async function loginDriver(phone: string, password: string, ip?: string, userAgent?: string) {
+  const normalizedPhone = normalizePhone(phone);
+  const driver = await prisma.driver.findUnique({ where: { phone: normalizedPhone } });
   if (!driver || driver.deletedAt) {
     throw new AppError(401, 'Invalid credentials', 'INVALID_CREDENTIALS');
   }
@@ -125,7 +132,7 @@ export async function loginDriver(email: string, password: string, ip?: string, 
 
   const valid = await bcrypt.compare(password, driver.passwordHash);
   if (!valid) {
-    logger.warn({ email, ip }, 'Failed login attempt');
+    logger.warn({ phone: normalizedPhone, ip }, 'Failed login attempt');
     throw new AppError(401, 'Invalid credentials', 'INVALID_CREDENTIALS');
   }
 
@@ -160,6 +167,7 @@ export async function loginDriver(email: string, password: string, ip?: string, 
   return {
     driver: {
       id: driver.id,
+      phone: driver.phone,
       email: driver.email,
       region: driver.region,
       referralCode: driver.referralCode,
@@ -206,13 +214,13 @@ export async function refreshAccessToken(refreshTokenValue: string, ip?: string)
 
 const RESET_TOKEN_TTL_MS = 15 * 60 * 1000; // 15 minutes
 
-export async function requestPasswordReset(email: string, ip?: string) {
-  const driver = await prisma.driver.findUnique({ where: { email } });
+export async function requestPasswordReset(phone: string, ip?: string) {
+  const normalizedPhone = normalizePhone(phone);
+  const driver = await prisma.driver.findUnique({ where: { phone: normalizedPhone } });
 
-  // Always return success to prevent email enumeration
   if (!driver || driver.deletedAt || driver.status === 'SUSPENDED') {
-    logger.info({ email, ip }, 'Password reset requested for unknown/invalid email');
-    return { message: 'If that email is registered, a reset code has been sent.' };
+    logger.info({ phone: normalizedPhone, ip }, 'Password reset requested for unknown/invalid phone');
+    return { message: 'If that phone number is registered, a reset code has been generated.' };
   }
 
   // Generate a 6-digit numeric code (user-friendly for manual entry in extension)
@@ -238,15 +246,16 @@ export async function requestPasswordReset(email: string, ip?: string) {
     },
   });
 
-  // TODO: Replace with actual email delivery (SendGrid/SES/Resend).
-  logger.info({ email, ip, resetCode: code }, 'Password reset code generated (check server logs)');
+  // TODO: Replace with SMS delivery.
+  logger.info({ phone: normalizedPhone, ip, resetCode: code }, 'Password reset code generated (check server logs)');
   return {
-    message: 'If that email is registered, a reset code has been generated.',
+    message: 'If that phone number is registered, a reset code has been generated.',
   };
 }
 
-export async function resetPassword(email: string, code: string, newPassword: string, ip?: string) {
-  const driver = await prisma.driver.findUnique({ where: { email } });
+export async function resetPassword(phone: string, code: string, newPassword: string, ip?: string) {
+  const normalizedPhone = normalizePhone(phone);
+  const driver = await prisma.driver.findUnique({ where: { phone: normalizedPhone } });
 
   if (!driver || !driver.resetTokenHash || !driver.resetTokenExpiresAt) {
     throw new AppError(400, 'Invalid or expired reset code', 'INVALID_RESET_CODE');

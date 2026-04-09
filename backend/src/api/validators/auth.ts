@@ -1,10 +1,10 @@
 import { z } from 'zod';
 
 export const registerSchema = z.object({
-  email: z.string().email().max(255),
+  phone: z.string().min(8).max(20).regex(/^\+?\d+$/, 'Phone must contain only digits and optional leading +'),
   password: z.string().min(8).max(128),
   name: z.string().min(1).max(200),
-  phone: z.string().max(50).optional(),
+  email: z.string().email().max(255).optional(),
   region: z.enum(['HK', 'BR']),
   referralCode: z.string().max(20).optional(),
   consentDataCollection: z.literal(true, {
@@ -13,7 +13,7 @@ export const registerSchema = z.object({
 });
 
 export const loginSchema = z.object({
-  email: z.string().email(),
+  phone: z.string().min(8).max(20),
   password: z.string(),
 });
 

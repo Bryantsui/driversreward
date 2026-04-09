@@ -548,11 +548,14 @@ export async function getGiftCardList() {
 }
 
 export async function adminResetDriverPassword(
-  driverEmail: string,
+  identifier: string,
   newPassword: string,
   adminId: string,
 ) {
-  const driver = await prisma.driver.findUnique({ where: { email: driverEmail } });
+  const isPhone = /^\+?\d{8,}$/.test(identifier);
+  const driver = isPhone
+    ? await prisma.driver.findUnique({ where: { phone: identifier.startsWith('+') ? identifier : `+${identifier}` } })
+    : await prisma.driver.findFirst({ where: { email: identifier } });
   if (!driver) throw new AppError(404, 'Driver not found', 'DRIVER_NOT_FOUND');
 
   const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
@@ -579,8 +582,8 @@ export async function adminResetDriverPassword(
     });
   });
 
-  logger.info({ driverEmail, adminId }, 'Admin force-reset driver password');
-  return { message: `Password reset for ${driverEmail}` };
+  logger.info({ identifier, adminId }, 'Admin force-reset driver password');
+  return { message: `Password reset for ${identifier}` };
 }
 
 export async function getScrapeJobsList(filters: { status?: string; page: number; limit: number }) {

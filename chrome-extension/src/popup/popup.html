@@ -346,6 +346,45 @@
       animation: spin 0.6s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    .how-points-card {
+      margin: 0 16px 12px;
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      overflow: hidden;
+    }
+    .how-points-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .how-points-header:hover { background: #fafafa; }
+    .how-points-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #1a1a1a;
+    }
+    .how-points-chevron {
+      font-size: 14px;
+      color: #888;
+      transition: transform 0.2s;
+    }
+    .how-points-chevron.open { transform: rotate(180deg); }
+    .how-points-body { display: none; padding: 0 14px 14px; }
+    .how-points-body.open { display: block; }
+    .how-points-divider { height: 1px; background: #f0f0f0; margin-bottom: 10px; }
+    .faq-item { display: flex; gap: 10px; padding: 8px 0; }
+    .faq-item + .faq-item { border-top: 1px solid #f0f0f0; }
+    .faq-icon { font-size: 18px; flex-shrink: 0; padding-top: 1px; }
+    .faq-title { font-size: 12px; font-weight: 600; color: #1a1a1a; margin-bottom: 2px; }
+    .faq-text { font-size: 11px; color: #666; line-height: 1.5; }
   </style>
 </head>
 <body class="logged-out">
@@ -368,7 +407,13 @@
       <div id="success-message" class="error-msg" style="display:none;color:#16a34a;background:#f0fdf4;border:1px solid #bbf7d0;padding:8px;border-radius:8px;margin-bottom:8px"></div>
 
       <div id="login-form-wrap">
-        <input type="email" id="login-email" placeholder="Email address" />
+        <div style="display:flex;gap:6px;margin-bottom:8px">
+          <select id="login-country-code" style="width:90px;padding:10px 6px;border:1px solid #ddd;border-radius:8px;font-size:14px;background:white">
+            <option value="+852">🇭🇰 +852</option>
+            <option value="+55">🇧🇷 +55</option>
+          </select>
+          <input type="tel" id="login-phone" placeholder="Phone number" style="flex:1" />
+        </div>
         <input type="password" id="login-password" placeholder="Password" />
         <button class="btn btn-primary" id="btn-login">Sign In</button>
         <div style="text-align:center;margin:8px 0">
@@ -379,8 +424,14 @@
 
       <div id="forgot-form-wrap" style="display:none">
         <p style="font-size:13px;color:#333;margin-bottom:12px;font-weight:500">Reset your password</p>
-        <p style="font-size:12px;color:#888;margin-bottom:12px">Enter your email to receive a 6-digit reset code.</p>
-        <input type="email" id="forgot-email" placeholder="Email address" />
+        <p style="font-size:12px;color:#888;margin-bottom:12px">Enter your phone number to receive a reset code.</p>
+        <div style="display:flex;gap:6px;margin-bottom:8px">
+          <select id="forgot-country-code" style="width:90px;padding:10px 6px;border:1px solid #ddd;border-radius:8px;font-size:14px;background:white">
+            <option value="+852">🇭🇰 +852</option>
+            <option value="+55">🇧🇷 +55</option>
+          </select>
+          <input type="tel" id="forgot-phone" placeholder="Phone number" style="flex:1" />
+        </div>
         <button class="btn btn-primary" id="btn-send-code">Send Reset Code</button>
         <button class="btn btn-secondary" id="btn-forgot-back" style="margin-top:6px">Back to Sign In</button>
       </div>
@@ -397,12 +448,19 @@
 
       <div id="register-form-wrap" style="display:none">
         <input type="text" id="reg-name" placeholder="Full name" />
-        <input type="email" id="reg-email" placeholder="Email address" />
-        <input type="password" id="reg-password" placeholder="Password (min 8 chars)" />
-        <select id="reg-region">
-          <option value="HK">Hong Kong</option>
-          <option value="BR">Brazil</option>
+        <select id="reg-region" style="margin-bottom:4px">
+          <option value="HK">🇭🇰 Hong Kong</option>
+          <option value="BR">🇧🇷 Brazil</option>
         </select>
+        <div style="display:flex;gap:6px;margin-bottom:8px">
+          <select id="reg-country-code" style="width:90px;padding:10px 6px;border:1px solid #ddd;border-radius:8px;font-size:14px;background:white">
+            <option value="+852">🇭🇰 +852</option>
+            <option value="+55">🇧🇷 +55</option>
+          </select>
+          <input type="tel" id="reg-phone" placeholder="Phone number" style="flex:1" />
+        </div>
+        <input type="email" id="reg-email" placeholder="Email (optional)" />
+        <input type="password" id="reg-password" placeholder="Password (min 8 chars)" />
         <input type="text" id="reg-referral" placeholder="Referral code (optional)" />
         <button class="btn btn-primary" id="btn-register">Register</button>
         <button class="btn btn-secondary" id="btn-register-back" style="margin-top:6px">Back to Sign In</button>
@@ -484,6 +542,41 @@
     <div class="sync-status" id="uber-session-bar">
       <div class="sync-dot" id="uber-session-dot"></div>
       <span id="uber-session-text">Checking Uber session...</span>
+    </div>
+
+    <!-- How Points Work -->
+    <div class="how-points-card" id="how-points-card">
+      <div class="how-points-header" id="how-points-toggle">
+        <span class="how-points-title">
+          <span style="font-size:16px">&#9432;</span>
+          How Points Work
+        </span>
+        <span class="how-points-chevron" id="how-points-chevron">&#9660;</span>
+      </div>
+      <div class="how-points-body" id="how-points-body">
+        <div class="how-points-divider"></div>
+        <div class="faq-item">
+          <span class="faq-icon">&#129689;</span>
+          <div>
+            <div class="faq-title">Earning Points</div>
+            <div class="faq-text">You earn 1 point for every completed trip synced during your weekly earning window. Cancelled trips and trips older than 30 days do not earn points.</div>
+          </div>
+        </div>
+        <div class="faq-item">
+          <span class="faq-icon">&#128197;</span>
+          <div>
+            <div class="faq-title">Sync Window</div>
+            <div class="faq-text">Your earning window opens every Monday at 00:00 and closes Wednesday at 23:59 (local time). You can sync trips anytime, but only syncs during the window earn points.</div>
+          </div>
+        </div>
+        <div class="faq-item">
+          <span class="faq-icon">&#127873;</span>
+          <div>
+            <div class="faq-title">Redeem Rewards</div>
+            <div class="faq-text">Spend your points on gift cards from the Rewards tab. Points are valid for 12 months from the date earned.</div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Rewards Section -->
