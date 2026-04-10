@@ -422,7 +422,8 @@ async function loadDriversTable(wrap) {
       <thead class="bg-gray-50">
         <tr>
           <th class="px-3 py-3 text-center w-10"><input type="checkbox" id="drv-select-all" class="rounded border-gray-300" /></th>
-          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Driver</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
           <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Region</th>
           <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
           <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Trips</th>
@@ -453,7 +454,8 @@ async function loadDriversTable(wrap) {
 
       const rest = document.createElement('template');
       rest.innerHTML = `
-        <td class="px-4 py-3 text-sm font-medium text-indigo-600 cursor-pointer">${esc(d.email || d.phone || '—')}</td>
+        <td class="px-4 py-3 text-sm font-medium text-indigo-600 cursor-pointer">${esc(d.name || d.email || d.phone || '—')}</td>
+        <td class="px-4 py-3 text-sm text-gray-600">${esc(d.phone || '—')}</td>
         <td class="px-4 py-3 text-sm">${regionBadge(d.region)}</td>
         <td class="px-4 py-3 text-sm">${esc(d.status)}</td>
         <td class="px-4 py-3 text-sm text-right">${fmt(d._count.trips)}</td>
@@ -470,7 +472,7 @@ async function loadDriversTable(wrap) {
       tbody.appendChild(tr);
     }
     if (data.drivers.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="9" class="px-4 py-8 text-center text-gray-400">No drivers found</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="10" class="px-4 py-8 text-center text-gray-400">No drivers found</td></tr>';
     }
     table.appendChild(tbody);
     tableContainer.appendChild(table);
@@ -528,7 +530,8 @@ async function renderDriverDetail(container, driverId) {
     header.innerHTML = `
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 class="text-xl font-bold text-gray-900">${esc(d.email)}</h2>
+          <h2 class="text-xl font-bold text-gray-900">${esc(d.name || d.phone || '—')}</h2>
+          <p class="text-sm text-gray-500 mt-0.5">${esc(d.phone || '')}${d.email ? ' · ' + esc(d.email) : ''}</p>
           <div class="flex items-center gap-2 mt-1">${regionBadge(d.region)} <span class="text-sm text-gray-500">${esc(d.status)}</span></div>
         </div>
         <div class="text-right">
@@ -538,10 +541,11 @@ async function renderDriverDetail(container, driverId) {
         </div>
       </div>
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-4 border-t border-gray-100">
+        <div><p class="text-xs text-gray-500">Phone</p><p class="text-sm">${esc(d.phone || '—')}</p></div>
+        <div><p class="text-xs text-gray-500">Email</p><p class="text-sm">${esc(d.email || '—')}</p></div>
         <div><p class="text-xs text-gray-500">Referral Code</p><p class="font-mono text-sm">${esc(d.referralCode)}</p></div>
         <div><p class="text-xs text-gray-500">Joined</p><p class="text-sm">${fmtDate(d.createdAt)}</p></div>
         <div><p class="text-xs text-gray-500">Last Active</p><p class="text-sm">${fmtDateTime(d.lastActiveAt)}</p></div>
-        <div><p class="text-xs text-gray-500">Email Verified</p><p class="text-sm">${d.emailVerified ? 'Yes' : 'No'}</p></div>
       </div>
     `;
     container.appendChild(header);
@@ -635,7 +639,7 @@ async function renderDriverDetail(container, driverId) {
       <p class="text-xs text-red-600 mb-3">Permanently delete this driver and all associated data (trips, bonuses, points, redemptions, sessions). This action cannot be undone.</p>`;
     const deleteBtn = el('button', {
       className: 'px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors',
-      onClick: () => showDeleteDriverModal(driverId, d.email || d.phone || driverId),
+      onClick: () => showDeleteDriverModal(driverId, d.name || d.phone || d.email || driverId),
     }, 'Delete Driver');
     dangerZone.appendChild(deleteBtn);
     container.appendChild(dangerZone);
@@ -1318,7 +1322,7 @@ async function renderDriverLedger(container, driverId) {
       <div class="flex items-center justify-between">
         <div>
           <h2 class="text-xl font-bold text-gray-900">Point Ledger</h2>
-          <p class="text-sm text-gray-500 mt-1">${drvData.driver.email} ${regionBadge(drvData.driver.region)}</p>
+          <p class="text-sm text-gray-500 mt-1">${esc(drvData.driver.name || drvData.driver.phone || drvData.driver.email || '—')} ${regionBadge(drvData.driver.region)}</p>
         </div>
         <div class="text-right">
           <p class="text-3xl font-bold text-indigo-600">${fmt(drvData.driver.pointsBalance)}</p>

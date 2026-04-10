@@ -3,7 +3,18 @@ import { prisma } from '../config/database.js';
 import { signAdminToken } from '../utils/admin-jwt.js';
 import { AppError } from '../api/middleware/error-handler.js';
 import { logger } from '../config/logger.js';
+import { decrypt } from '../utils/encryption.js';
 import type { Region, TripReviewStatus } from '@prisma/client';
+
+function decryptName(nameEncrypted: Buffer | null | undefined): string | null {
+  if (!nameEncrypted) return null;
+  try {
+    const raw = Buffer.from(nameEncrypted).toString('utf8');
+    return decrypt(raw);
+  } catch {
+    return null;
+  }
+}
 
 const SALT_ROUNDS = 12;
 
@@ -134,6 +145,8 @@ export async function getDriversList(filters: { region?: Region; status?: string
       select: {
         id: true,
         email: true,
+        phone: true,
+        nameEncrypted: true,
         region: true,
         status: true,
         pointsBalance: true,
@@ -149,7 +162,13 @@ export async function getDriversList(filters: { region?: Region; status?: string
     prisma.driver.count({ where }),
   ]);
 
-  return { drivers, total, page: filters.page, limit: filters.limit };
+  const driversWithName = drivers.map((d) => ({
+    ...d,
+    name: decryptName(d.nameEncrypted),
+    nameEncrypted: undefined,
+  }));
+
+  return { drivers: driversWithName, total, page: filters.page, limit: filters.limit };
 }
 
 export async function getTripsForReview(filters: DashboardFilters) {
@@ -301,11 +320,13 @@ export async function bulkReviewTrips(
 }
 
 export async function getDriverDetail(driverId: string) {
-  const driver = await prisma.driver.findUnique({
+  const rawDriver = await prisma.driver.findUnique({
     where: { id: driverId },
     select: {
       id: true,
       email: true,
+      phone: true,
+      nameEncrypted: true,
       region: true,
       status: true,
       pointsBalance: true,
@@ -325,9 +346,15 @@ export async function getDriverDetail(driverId: string) {
     },
   });
 
-  if (!driver) {
+  if (!rawDriver) {
     throw new AppError(404, 'Driver not found', 'DRIVER_NOT_FOUND');
   }
+
+  const driver = {
+    ...rawDriver,
+    name: decryptName(rawDriver.nameEncrypted),
+    nameEncrypted: undefined,
+  };
 
   const tripStats = await prisma.trip.groupBy({
     by: ['reviewStatus'],
