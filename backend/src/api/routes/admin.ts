@@ -519,6 +519,72 @@ router.delete(
   },
 );
 
+// Bulk delete multiple drivers (super_admin only)
+const bulkDeleteDriversSchema = z.object({
+  driverIds: z.array(z.string().regex(UUID_RE, 'Invalid UUID')).min(1).max(50),
+});
+
+router.post(
+  '/drivers/bulk-delete',
+  requireRole('SUPER_ADMIN'),
+  async (req: Request, res: Response, next) => {
+    try {
+      const { driverIds } = bulkDeleteDriversSchema.parse(req.body);
+
+      const drivers = await prisma.driver.findMany({
+        where: { id: { in: driverIds } },
+        select: { id: true, email: true, phone: true },
+      });
+      const foundIds = new Set(drivers.map((d) => d.id));
+      const notFound = driverIds.filter((id) => !foundIds.has(id));
+
+      let deleted = 0;
+      const errors: Array<{ id: string; error: string }> = [];
+
+      for (const driver of drivers) {
+        try {
+          await prisma.$transaction(async (tx) => {
+            await tx.pointLedger.deleteMany({ where: { driverId: driver.id } });
+            await tx.earningsBonus.deleteMany({ where: { driverId: driver.id } });
+            await tx.activitySync.deleteMany({ where: { driverId: driver.id } });
+            await tx.redemption.deleteMany({ where: { driverId: driver.id } });
+            await tx.refreshToken.deleteMany({ where: { driverId: driver.id } });
+            await tx.consent.deleteMany({ where: { driverId: driver.id } });
+            await tx.uberSession.deleteMany({ where: { driverId: driver.id } });
+            await tx.uberCredential.deleteMany({ where: { driverId: driver.id } });
+            await tx.scrapeJob.deleteMany({ where: { driverId: driver.id } });
+            await tx.auditLog.deleteMany({ where: { driverId: driver.id } });
+            await tx.trip.deleteMany({ where: { driverId: driver.id } });
+            await tx.driver.updateMany({ where: { referredBy: driver.id }, data: { referredBy: null } });
+            await tx.driver.delete({ where: { id: driver.id } });
+            await tx.auditLog.create({
+              data: {
+                adminId: req.admin!.sub,
+                action: 'BULK_DELETE_DRIVER',
+                resource: 'driver',
+                resourceId: driver.id,
+                details: { deletedEmail: driver.email, deletedPhone: driver.phone },
+              },
+            });
+          });
+          deleted++;
+        } catch (err: any) {
+          errors.push({ id: driver.id, error: err.message });
+        }
+      }
+
+      res.json({
+        requested: driverIds.length,
+        deleted,
+        notFound: notFound.length,
+        errors,
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 // ═══════════════ SCRAPE MONITORING ═══════════════
 
 router.get('/scrape-jobs', authenticateAdmin, async (req: Request, res: Response, next) => {

@@ -351,7 +351,7 @@ async function renderDrivers(container) {
   const header = el('div', { className: 'flex flex-wrap items-center justify-between gap-4 mb-6' });
   header.appendChild(el('h2', { className: 'text-xl font-bold text-gray-900' }, 'Drivers'));
 
-  const filters = el('div', { className: 'flex gap-3 flex-wrap' });
+  const filters = el('div', { className: 'flex gap-3 flex-wrap items-center' });
   filters.innerHTML = `
     <select id="drv-region" class="text-sm border border-gray-300 rounded-lg px-3 py-2">
       <option value="">All Regions</option><option value="HK">Hong Kong</option><option value="BR">Brazil</option>
@@ -362,6 +362,9 @@ async function renderDrivers(container) {
       <option value="SUSPENDED">Suspended</option>
     </select>
     <button id="drv-apply" class="text-sm bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700">Apply</button>
+    <button id="drv-bulk-delete" class="text-sm bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 hidden items-center gap-1">
+      <span>🗑</span> Delete Selected (<span id="drv-selected-count">0</span>)
+    </button>
   `;
   header.appendChild(filters);
   container.appendChild(header);
@@ -393,11 +396,32 @@ async function loadDriversTable(wrap) {
     const data = await api(`/drivers?${params}`);
     wrap.innerHTML = '';
 
+    const selectedIds = new Set();
+    const updateBulkBtn = () => {
+      const btn = document.getElementById('drv-bulk-delete');
+      const countEl = document.getElementById('drv-selected-count');
+      if (!btn) return;
+      if (selectedIds.size > 0) {
+        btn.classList.remove('hidden');
+        btn.classList.add('flex');
+        countEl.textContent = selectedIds.size;
+      } else {
+        btn.classList.add('hidden');
+        btn.classList.remove('flex');
+      }
+    };
+
+    const bulkDeleteBtn = document.getElementById('drv-bulk-delete');
+    if (bulkDeleteBtn) {
+      bulkDeleteBtn.onclick = () => showBulkDeleteModal([...selectedIds], () => loadDriversTable(wrap));
+    }
+
     const tableContainer = el('div', { className: 'bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden' });
     const table = el('table', { className: 'min-w-full divide-y divide-gray-200' });
     table.innerHTML = `
       <thead class="bg-gray-50">
         <tr>
+          <th class="px-3 py-3 text-center w-10"><input type="checkbox" id="drv-select-all" class="rounded border-gray-300" /></th>
           <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
           <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Region</th>
           <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
@@ -412,9 +436,24 @@ async function loadDriversTable(wrap) {
 
     const tbody = el('tbody', { className: 'divide-y divide-gray-100' });
     for (const d of data.drivers) {
-      const tr = el('tr', { className: 'hover:bg-gray-50 cursor-pointer', onClick: () => navigateTo(`driver/${d.id}`) });
-      tr.innerHTML = `
-        <td class="px-4 py-3 text-sm font-medium text-indigo-600">${esc(d.email)}</td>
+      const tr = el('tr', { className: 'hover:bg-gray-50' });
+      const cb = el('input', { type: 'checkbox', className: 'rounded border-gray-300 drv-cb' });
+      cb.dataset.id = d.id;
+      cb.addEventListener('change', (e) => {
+        e.stopPropagation();
+        if (cb.checked) { selectedIds.add(d.id); tr.classList.add('bg-red-50'); }
+        else { selectedIds.delete(d.id); tr.classList.remove('bg-red-50'); }
+        updateBulkBtn();
+      });
+      cb.addEventListener('click', (e) => e.stopPropagation());
+      const cbTd = el('td', { className: 'px-3 py-3 text-center' });
+      cbTd.appendChild(cb);
+      cbTd.addEventListener('click', (e) => e.stopPropagation());
+      tr.appendChild(cbTd);
+
+      const rest = document.createElement('template');
+      rest.innerHTML = `
+        <td class="px-4 py-3 text-sm font-medium text-indigo-600 cursor-pointer">${esc(d.email || d.phone || '—')}</td>
         <td class="px-4 py-3 text-sm">${regionBadge(d.region)}</td>
         <td class="px-4 py-3 text-sm">${esc(d.status)}</td>
         <td class="px-4 py-3 text-sm text-right">${fmt(d._count.trips)}</td>
@@ -423,14 +462,35 @@ async function loadDriversTable(wrap) {
         <td class="px-4 py-3 text-sm text-gray-500">${fmtDateTime(d.lastActiveAt)}</td>
         <td class="px-4 py-3 text-sm text-gray-500">${fmtDate(d.createdAt)}</td>
       `;
+      for (const child of [...rest.content.children]) {
+        child.addEventListener('click', () => navigateTo(`driver/${d.id}`));
+        child.style.cursor = 'pointer';
+        tr.appendChild(child);
+      }
       tbody.appendChild(tr);
     }
     if (data.drivers.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" class="px-4 py-8 text-center text-gray-400">No drivers found</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9" class="px-4 py-8 text-center text-gray-400">No drivers found</td></tr>';
     }
     table.appendChild(tbody);
     tableContainer.appendChild(table);
     wrap.appendChild(tableContainer);
+
+    // Select-all checkbox
+    const selectAll = table.querySelector('#drv-select-all');
+    if (selectAll) {
+      selectAll.addEventListener('change', () => {
+        const cbs = table.querySelectorAll('.drv-cb');
+        cbs.forEach((c) => {
+          c.checked = selectAll.checked;
+          const id = c.dataset.id;
+          const row = c.closest('tr');
+          if (selectAll.checked) { selectedIds.add(id); row.classList.add('bg-red-50'); }
+          else { selectedIds.delete(id); row.classList.remove('bg-red-50'); }
+        });
+        updateBulkBtn();
+      });
+    }
 
     const totalPages = Math.ceil(data.total / data.limit);
     if (totalPages > 1) {
@@ -1127,6 +1187,61 @@ async function renderTripDetail(container, tripId) {
   } catch (err) {
     container.innerHTML = `<div class="text-red-600 bg-red-50 p-4 rounded-lg">${err.message}</div>`;
   }
+}
+
+function showBulkDeleteModal(driverIds, onComplete) {
+  const count = driverIds.length;
+  const overlay = el('div', { className: 'fixed inset-0 bg-black/50 flex items-center justify-center z-50' });
+  const modal = el('div', { className: 'bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6' });
+  modal.innerHTML = `
+    <h3 class="text-lg font-bold text-red-700 mb-2">Bulk Delete Drivers</h3>
+    <p class="text-sm text-gray-700 mb-4">You are about to <strong>permanently delete ${count} driver${count > 1 ? 's' : ''}</strong> and all their associated data (trips, bonuses, points, redemptions, sessions).</p>
+    <p class="text-sm text-red-600 font-medium mb-4">This action cannot be undone.</p>
+    <p class="text-xs text-gray-500 mb-3">Type <strong>DELETE ${count}</strong> to confirm:</p>
+    <input id="bulkDeleteInput" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-4 focus:ring-2 focus:ring-red-500 focus:border-red-500" placeholder="Type DELETE ${count}" />
+    <div class="flex gap-3 justify-end">
+      <button id="bulkCancelBtn" class="px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200">Cancel</button>
+      <button id="bulkConfirmBtn" class="px-4 py-2 text-sm text-white bg-red-600 rounded-lg hover:bg-red-700 opacity-50 cursor-not-allowed" disabled>Delete ${count} Driver${count > 1 ? 's' : ''}</button>
+    </div>
+  `;
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+
+  const input = modal.querySelector('#bulkDeleteInput');
+  const confirmBtn = modal.querySelector('#bulkConfirmBtn');
+  const cancelBtn = modal.querySelector('#bulkCancelBtn');
+  const expected = `DELETE ${count}`;
+
+  input.addEventListener('input', () => {
+    const enabled = input.value.trim() === expected;
+    confirmBtn.disabled = !enabled;
+    confirmBtn.classList.toggle('opacity-50', !enabled);
+    confirmBtn.classList.toggle('cursor-not-allowed', !enabled);
+  });
+
+  cancelBtn.addEventListener('click', () => overlay.remove());
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+
+  confirmBtn.addEventListener('click', async () => {
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Deleting...';
+    try {
+      const result = await api('/drivers/bulk-delete', {
+        method: 'POST',
+        body: JSON.stringify({ driverIds }),
+      });
+      overlay.remove();
+      const msg = `Deleted ${result.deleted} of ${result.requested} drivers.` +
+        (result.notFound > 0 ? ` ${result.notFound} not found.` : '') +
+        (result.errors?.length > 0 ? ` ${result.errors.length} failed.` : '');
+      alert(msg);
+      if (onComplete) onComplete();
+    } catch (err) {
+      confirmBtn.textContent = `Delete ${count} Driver${count > 1 ? 's' : ''}`;
+      confirmBtn.disabled = false;
+      alert('Failed: ' + err.message);
+    }
+  });
 }
 
 // ── Driver Bonuses ────────────────────────────────────
