@@ -504,7 +504,7 @@ router.delete(
             action: 'DELETE_DRIVER',
             resource: 'driver',
             resourceId: driverId,
-            metadata: { deletedEmail: driver.email, deletedPhone: driver.phone },
+            details: { deletedEmail: driver.email, deletedPhone: driver.phone },
           },
         });
       });
