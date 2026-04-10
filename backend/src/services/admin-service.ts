@@ -6,7 +6,7 @@ import { logger } from '../config/logger.js';
 import { decrypt } from '../utils/encryption.js';
 import type { Region, TripReviewStatus } from '@prisma/client';
 
-function decryptName(nameEncrypted: Buffer | null | undefined): string | null {
+function decryptName(nameEncrypted: Uint8Array | null | undefined): string | null {
   if (!nameEncrypted) return null;
   try {
     const raw = Buffer.from(nameEncrypted).toString('utf8');
