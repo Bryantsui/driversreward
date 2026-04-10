@@ -23,8 +23,8 @@ android {
         applicationId = "com.driversreward.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 14
-        versionName = "1.5.0"
+        versionCode = 15
+        versionName = "1.5.1"
 
         buildConfigField("String", "API_BASE_URL", "\"https://api.driversreward.com\"")
     }
