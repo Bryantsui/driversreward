@@ -68,6 +68,7 @@ model Driver {
   deletedAt     DateTime?    @map("deleted_at") @db.Timestamptz()
 
   trips          Trip[]
+  earningsBonuses EarningsBonus[]
   pointLedger    PointLedger[]
   redemptions    Redemption[]
   refreshTokens  RefreshToken[]
@@ -165,6 +166,30 @@ model Trip {
   @@index([rawPayloadPurgeAt], map: "idx_trip_purge")
   @@index([reviewStatus, createdAt(sort: Desc)], map: "idx_trip_review_status")
   @@map("trips")
+}
+
+model EarningsBonus {
+  id              String   @id @default(uuid()) @db.Uuid
+  driverId        String   @map("driver_id") @db.Uuid
+  bonusUuid       String   @map("bonus_uuid") @db.VarChar(100)
+  region          Region
+  activityType    String   @map("activity_type") @db.VarChar(50)  // BONUS, QUEST, INCENTIVE, PROMOTION, etc.
+  activityTitle   String   @map("activity_title") @db.VarChar(200)
+  formattedTotal  String   @map("formatted_total") @db.VarChar(50)
+  amount          Decimal  @db.Decimal(12, 2)
+  currency        String   @db.VarChar(10)
+  recognizedAt    DateTime @map("recognized_at") @db.Timestamptz()
+  source          String?  @db.VarChar(30)
+  rawPayload      Json?    @map("raw_payload")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  driver          Driver   @relation(fields: [driverId], references: [id])
+
+  @@unique([driverId, bonusUuid], map: "uq_driver_bonus")
+  @@index([bonusUuid], map: "idx_bonus_uuid")
+  @@index([driverId, recognizedAt(sort: Desc)], map: "idx_bonus_driver_date")
+  @@index([region, activityType], map: "idx_bonus_region_type")
+  @@map("earnings_bonuses")
 }
 
 model ActivitySync {

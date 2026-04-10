@@ -22,6 +22,7 @@ import {
   getCredentialHealth,
 } from '../../services/admin-service.js';
 import type { Region, TripReviewStatus } from '@prisma/client';
+import { prisma } from '../../config/database.js';
 
 const router = Router();
 
@@ -273,6 +274,30 @@ router.get('/drivers/:id/ledger', async (req: Request, res: Response, next) => {
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 50));
     const result = await getDriverPointLedger(req.params.id as string, page, limit);
     res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Driver bonuses
+router.get('/drivers/:id/bonuses', async (req: Request, res: Response, next) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 50));
+    const offset = (page - 1) * limit;
+    const driverId = req.params.id as string;
+
+    const [bonuses, total] = await Promise.all([
+      prisma.earningsBonus.findMany({
+        where: { driverId },
+        orderBy: { recognizedAt: 'desc' },
+        skip: offset,
+        take: limit,
+      }),
+      prisma.earningsBonus.count({ where: { driverId } }),
+    ]);
+
+    res.json({ bonuses, total, page, limit });
   } catch (err) {
     next(err);
   }

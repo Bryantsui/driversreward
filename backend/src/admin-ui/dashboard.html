@@ -280,6 +280,7 @@ function navigateTo(hash) {
     case 'overview': renderOverview(content); break;
     case 'drivers': renderDrivers(content); break;
     case 'driver': renderDriverDetail(content, rest[0]); break;
+    case 'driver-bonuses': renderDriverBonuses(content, rest[0]); break;
     case 'driver-ledger': renderDriverLedger(content, rest[0]); break;
     case 'trips': renderTrips(content); break;
     case 'trip': renderTripDetail(content, rest[0]); break;
@@ -489,6 +490,7 @@ async function renderDriverDetail(container, driverId) {
     const tripStats = data.tripStats || {};
     const statCards = [
       { label: 'Total Trips', value: fmt(d._count.trips), color: 'blue' },
+      { label: 'Bonuses/Quests', value: fmt(d._count.earningsBonuses || 0), color: 'emerald' },
       { label: 'This Week', value: fmt(data.weeklyContribution), color: 'green' },
       { label: 'Pending Review', value: fmt(tripStats.PENDING_REVIEW || 0), color: 'yellow' },
       { label: 'Redemptions', value: fmt(d._count.redemptions), color: 'purple' },
@@ -553,11 +555,16 @@ async function renderDriverDetail(container, driverId) {
       className: 'text-sm text-indigo-600 hover:text-indigo-800 font-medium',
       onClick: () => navigateTo(`driver-ledger/${driverId}`),
     }, 'View point ledger →');
+    const viewBonuses = el('button', {
+      className: 'text-sm text-emerald-600 hover:text-emerald-800 font-medium',
+      onClick: () => navigateTo(`driver-bonuses/${driverId}`),
+    }, 'View bonuses →');
     const viewRedemptions = el('button', {
       className: 'text-sm text-indigo-600 hover:text-indigo-800 font-medium',
       onClick: () => { redemptionsFilters.driverId = driverId; redemptionsPage = 1; navigateTo('redemptions'); },
     }, 'View redemptions →');
     links.appendChild(viewTrips);
+    links.appendChild(viewBonuses);
     links.appendChild(viewLedger);
     links.appendChild(viewRedemptions);
     container.appendChild(links);
@@ -1060,6 +1067,57 @@ async function renderTripDetail(container, tripId) {
       payloadSection.appendChild(viewer);
       container.appendChild(payloadSection);
     }
+  } catch (err) {
+    container.innerHTML = `<div class="text-red-600 bg-red-50 p-4 rounded-lg">${err.message}</div>`;
+  }
+}
+
+// ── Driver Bonuses ────────────────────────────────────
+async function renderDriverBonuses(container, driverId) {
+  if (!driverId) { navigateTo('drivers'); return; }
+  try {
+    const data = await api(`/drivers/${driverId}/bonuses?limit=50`);
+    container.innerHTML = '';
+    container.classList.add('fade-in');
+
+    const back = el('button', { className: 'text-sm text-indigo-600 hover:text-indigo-800 mb-4 flex items-center gap-1', onClick: () => navigateTo(`driver/${driverId}`) });
+    back.innerHTML = '&larr; Back to Driver';
+    container.appendChild(back);
+
+    const title = el('h2', { className: 'text-xl font-bold text-gray-900 mb-4' }, `Bonuses & Quests (${data.total} total)`);
+    container.appendChild(title);
+
+    if (data.bonuses.length === 0) {
+      container.appendChild(el('p', { className: 'text-gray-500' }, 'No bonuses or quests found for this driver.'));
+      return;
+    }
+
+    const table = el('table', { className: 'min-w-full divide-y divide-gray-200 text-sm bg-white rounded-xl shadow-sm border border-gray-100' });
+    table.innerHTML = `<thead class="bg-gray-50"><tr>
+      <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">Type</th>
+      <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">Title</th>
+      <th class="px-4 py-3 text-right text-xs font-medium text-gray-500">Amount</th>
+      <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">Date</th>
+      <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">Source</th>
+    </tr></thead>`;
+    const tbody = el('tbody', { className: 'divide-y divide-gray-100' });
+    for (const b of data.bonuses) {
+      const tr = el('tr', { className: 'hover:bg-gray-50' });
+      const typeColor = b.activityType === 'QUEST' ? 'bg-purple-100 text-purple-700'
+        : b.activityType === 'BONUS' ? 'bg-emerald-100 text-emerald-700'
+        : 'bg-blue-100 text-blue-700';
+      tr.innerHTML = `
+        <td class="px-4 py-3"><span class="px-2 py-0.5 rounded-full text-xs font-medium ${typeColor}">${esc(b.activityType)}</span></td>
+        <td class="px-4 py-3 font-medium">${esc(b.activityTitle)}</td>
+        <td class="px-4 py-3 text-right font-mono">${esc(b.formattedTotal)}</td>
+        <td class="px-4 py-3 text-gray-500">${fmtDateTime(b.recognizedAt)}</td>
+        <td class="px-4 py-3 text-gray-400">${esc(b.source || '—')}</td>
+      `;
+      tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+    container.appendChild(table);
+
   } catch (err) {
     container.innerHTML = `<div class="text-red-600 bg-red-50 p-4 rounded-lg">${err.message}</div>`;
   }

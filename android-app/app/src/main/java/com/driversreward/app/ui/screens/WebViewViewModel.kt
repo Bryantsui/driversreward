@@ -4,6 +4,7 @@ import android.util.Log
 import android.webkit.CookieManager
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.driversreward.app.data.api.BonusItem
 import com.driversreward.app.data.api.RawTripItem
 import com.driversreward.app.data.api.RewardsApi
 import com.driversreward.app.data.repository.AuthRepository
@@ -119,6 +120,33 @@ class WebViewViewModel @Inject constructor(
                 tripRepository.submitActivityFeed(rawJson)
             } catch (e: Exception) {
                 Log.w(TAG, "onActivityFeedCaptured error: ${e.message}")
+            }
+        }
+    }
+
+    fun onBonusesCaptured(rawJson: String) {
+        viewModelScope.launch {
+            try {
+                val arr = org.json.JSONArray(rawJson)
+                val bonuses = mutableListOf<BonusItem>()
+                for (i in 0 until arr.length()) {
+                    val obj = arr.getJSONObject(i)
+                    bonuses.add(
+                        BonusItem(
+                            uuid = obj.optString("uuid", ""),
+                            activityType = obj.optString("type", "BONUS"),
+                            activityTitle = obj.optString("activityTitle", ""),
+                            formattedTotal = obj.optString("formattedTotal", ""),
+                            recognizedAt = obj.optLong("recognizedAt", 0)
+                        )
+                    )
+                }
+                if (bonuses.isNotEmpty()) {
+                    Log.d(TAG, "onBonusesCaptured: submitting ${bonuses.size} bonuses")
+                    tripRepository.submitRawBonuses(bonuses)
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "onBonusesCaptured error: ${e.message}")
             }
         }
     }

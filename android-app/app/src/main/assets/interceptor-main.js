@@ -213,7 +213,7 @@
     setTimeout(() => autoFetchTrips(), 3000);
   }
 
-  async function fetchFeedWeek(startDate, endDate, allTrips) {
+  async function fetchFeedWeek(startDate, endDate, allTrips, allBonuses) {
     const body = JSON.stringify({
       startDateIso: fmtDate(startDate),
       endDateIso: fmtDate(endDate),
@@ -246,8 +246,14 @@
         if (parsed.status !== 'success') break;
 
         const activities = parsed.data?.activities || [];
-        const trips = activities.filter((a) => a.uuid);
-        allTrips.push(...trips);
+        for (const act of activities) {
+          if (!act.uuid) continue;
+          if (act.type === 'TRIP') {
+            allTrips.push(act);
+          } else {
+            allBonuses.push(act);
+          }
+        }
 
         post('UBER_ACTIVITY_FEED_CAPTURED', text, FEED_PATH);
 
@@ -270,6 +276,7 @@
     postProgress('fetching_history', { message: 'Scanning trip history...', week: 0, totalWeeks: WEEKS_TO_FETCH });
 
     const allTrips = [];
+    const allBonuses = [];
 
     for (let w = 0; w < WEEKS_TO_FETCH; w++) {
       const endDate = new Date();
@@ -287,11 +294,11 @@
       });
 
       console.log(`[DriversReward] Week ${w + 1}: ${fmtDate(startDate)} → ${fmtDate(endPlusOne)}`);
-      await fetchFeedWeek(startDate, endPlusOne, allTrips);
+      await fetchFeedWeek(startDate, endPlusOne, allTrips, allBonuses);
       await sleep(DELAY_BETWEEN_WEEKS_MS);
     }
 
-    // Deduplicate by UUID
+    // Deduplicate trips
     const seen = new Set();
     const uniqueTrips = allTrips.filter((t) => {
       if (seen.has(t.uuid)) return false;
@@ -299,7 +306,21 @@
       return true;
     });
 
-    console.log(`[DriversReward] Found ${uniqueTrips.length} unique trips — fetching details...`);
+    // Deduplicate bonuses
+    const seenBonuses = new Set();
+    const uniqueBonuses = allBonuses.filter((b) => {
+      if (seenBonuses.has(b.uuid)) return false;
+      seenBonuses.add(b.uuid);
+      return true;
+    });
+
+    if (uniqueBonuses.length > 0) {
+      console.log(`[DriversReward] Found ${uniqueBonuses.length} bonus/quest activities`);
+      post('UBER_BONUSES_CAPTURED', JSON.stringify(uniqueBonuses), '');
+    }
+
+    const totalItems = uniqueTrips.length + uniqueBonuses.length;
+    console.log(`[DriversReward] Found ${uniqueTrips.length} trips + ${uniqueBonuses.length} bonuses — fetching trip details...`);
     postProgress('fetching_details', {
       message: `Found ${uniqueTrips.length} trips. Fetching details...`,
       fetched: 0,
@@ -337,11 +358,10 @@
       if (i + PARALLEL_TRIP_FETCH < uniqueTrips.length) await sleep(DELAY_BETWEEN_TRIPS_MS);
     }
 
-    console.log(`[DriversReward] Complete: ${fetched}/${uniqueTrips.length} trips captured`);
+    console.log(`[DriversReward] Complete: ${fetched}/${uniqueTrips.length} trips captured, ${uniqueBonuses.length} bonuses`);
     postProgress('submitting', { message: 'Sending trip data to server...', fetched, total: uniqueTrips.length });
-    // Small delay to ensure all UBER_TRIP_CAPTURED messages are delivered before signaling completion
     await sleep(2000);
-    post('AUTO_FETCH_COMPLETE', JSON.stringify({ total: uniqueTrips.length, fetched }), '');
+    post('AUTO_FETCH_COMPLETE', JSON.stringify({ total: uniqueTrips.length, fetched, bonuses: uniqueBonuses.length }), '');
   }
 
   function sleep(ms) {

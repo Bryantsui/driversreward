@@ -61,6 +61,36 @@ class TripRepository @Inject constructor(
         return response.body()
     }
 
+    suspend fun submitRawBonuses(bonuses: List<BonusItem>): SubmitRawBonusesResponse? {
+        if (bonuses.isEmpty()) return null
+        val token = authRepository.getAccessToken() ?: run {
+            Log.w(TAG, "submitRawBonuses: no access token")
+            return null
+        }
+
+        val request = SubmitRawBonusesRequest(bonuses = bonuses, source = "android_app")
+        Log.d(TAG, "submitRawBonuses: sending ${bonuses.size} bonuses")
+
+        val response = api.submitRawBonuses(token = "Bearer $token", request = request)
+
+        if (response.code() == 401) {
+            Log.d(TAG, "submitRawBonuses: 401, refreshing token...")
+            val newToken = authRepository.refreshToken() ?: return null
+            val retryResponse = api.submitRawBonuses(token = "Bearer $newToken", request = request)
+            Log.d(TAG, "submitRawBonuses retry: code=${retryResponse.code()}")
+            return retryResponse.body()
+        }
+
+        if (!response.isSuccessful) {
+            Log.e(TAG, "submitRawBonuses: server error ${response.code()} — ${response.errorBody()?.string()}")
+            return null
+        }
+
+        val body = response.body()
+        Log.d(TAG, "submitRawBonuses: created=${body?.created}, dupes=${body?.duplicates}")
+        return body
+    }
+
     suspend fun submitActivityFeed(rawJson: String): ActivityFeedResponse? {
         val token = authRepository.getAccessToken() ?: return null
 

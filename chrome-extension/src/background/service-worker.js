@@ -308,6 +308,44 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     uploadUberCredentials('chrome_extension');
   }
 
+  if (message.type === 'UBER_BONUSES_CAPTURED') {
+    (async () => {
+      const auth = await getValidAuth();
+      if (!auth) return;
+
+      try {
+        const bonuses = JSON.parse(message.rawBody);
+        if (!Array.isArray(bonuses) || bonuses.length === 0) return;
+
+        const payload = bonuses.map((b) => ({
+          uuid: b.uuid,
+          activityType: b.type || 'BONUS',
+          activityTitle: b.activityTitle || '',
+          formattedTotal: b.formattedTotal || '',
+          recognizedAt: b.recognizedAt || 0,
+        }));
+
+        const res = await fetch(`${auth.serverUrl}/api/ingest/raw-bonuses`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${auth.accessToken}`,
+          },
+          body: JSON.stringify({ bonuses: payload, source: 'chrome_extension' }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          console.log(`[DriversReward] Bonuses submitted: created=${data.created}, dupes=${data.duplicates}`);
+        } else {
+          console.warn(`[DriversReward] Bonus submission failed: ${res.status}`);
+        }
+      } catch (err) {
+        console.error('[DriversReward] Error submitting bonuses:', err);
+      }
+    })();
+  }
+
   if (message.type === 'UBER_CSRF_CAPTURED') {
     try {
       const data = JSON.parse(message.rawBody);

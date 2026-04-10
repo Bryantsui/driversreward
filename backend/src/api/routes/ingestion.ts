@@ -246,6 +246,86 @@ router.post('/raw-trips', async (req: Request, res: Response, next) => {
   }
 });
 
+// --- New endpoint: bonus/quest activities from activity feed ---
+const rawBonusesSchema = z.object({
+  bonuses: z.array(z.object({
+    uuid: z.string().max(100),
+    activityType: z.string().max(50),
+    activityTitle: z.string().max(200),
+    formattedTotal: z.string().max(50),
+    recognizedAt: z.number(),
+    rawPayload: z.any().optional(),
+  })).min(1).max(500),
+  source: z.enum(['chrome_extension', 'android_app']),
+});
+
+router.post('/raw-bonuses', async (req: Request, res: Response, next) => {
+  try {
+    const input = rawBonusesSchema.parse(req.body);
+    const driverId = req.driver!.sub;
+    const region = req.driver!.region as Region;
+
+    const allUuids = input.bonuses.map((b) => b.uuid);
+    const existing = await prisma.earningsBonus.findMany({
+      where: { driverId, bonusUuid: { in: allUuids } },
+      select: { bonusUuid: true },
+    });
+    const existingSet = new Set(existing.map((e) => e.bonusUuid));
+
+    let created = 0;
+    let duplicates = 0;
+
+    for (const bonus of input.bonuses) {
+      if (existingSet.has(bonus.uuid)) {
+        duplicates++;
+        continue;
+      }
+
+      const amountStr = bonus.formattedTotal.replace(/[^0-9.\-]/g, '');
+      const amount = parseFloat(amountStr) || 0;
+      const currency = bonus.formattedTotal.includes('HK$') ? 'HKD'
+        : bonus.formattedTotal.includes('R$') ? 'BRL'
+        : 'USD';
+
+      try {
+        await prisma.earningsBonus.create({
+          data: {
+            driverId,
+            bonusUuid: bonus.uuid,
+            region,
+            activityType: bonus.activityType,
+            activityTitle: bonus.activityTitle,
+            formattedTotal: bonus.formattedTotal,
+            amount,
+            currency,
+            recognizedAt: new Date(bonus.recognizedAt * 1000),
+            source: input.source,
+            rawPayload: bonus.rawPayload || undefined,
+          },
+        });
+        created++;
+        existingSet.add(bonus.uuid);
+      } catch (err: any) {
+        if (err.code === 'P2002') {
+          duplicates++;
+        } else {
+          logger.error({ err, bonusUuid: bonus.uuid }, 'Failed to store bonus');
+        }
+      }
+    }
+
+    logger.info({ driverId, created, duplicates, total: input.bonuses.length }, 'Bonuses ingested');
+
+    res.status(201).json({
+      processed: input.bonuses.length,
+      created,
+      duplicates,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.post('/activity-feed', async (req: Request, res: Response, next) => {
   try {
     const input = submitActivityFeedSchema.parse(req.body);

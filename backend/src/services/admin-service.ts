@@ -317,6 +317,7 @@ export async function getDriverDetail(driverId: string) {
       _count: {
         select: {
           trips: true,
+          earningsBonuses: true,
           redemptions: true,
           activitySyncs: true,
         },

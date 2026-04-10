@@ -86,6 +86,38 @@ router.get('/trips', async (req: Request, res: Response, next) => {
   }
 });
 
+router.get('/bonuses', async (req: Request, res: Response, next) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
+    const offset = (page - 1) * limit;
+
+    const [bonuses, total] = await Promise.all([
+      prisma.earningsBonus.findMany({
+        where: { driverId: req.driver!.sub },
+        orderBy: { recognizedAt: 'desc' },
+        skip: offset,
+        take: limit,
+        select: {
+          id: true,
+          bonusUuid: true,
+          activityType: true,
+          activityTitle: true,
+          formattedTotal: true,
+          amount: true,
+          currency: true,
+          recognizedAt: true,
+        },
+      }),
+      prisma.earningsBonus.count({ where: { driverId: req.driver!.sub } }),
+    ]);
+
+    res.json({ bonuses, total, page, limit });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get('/stats', async (req: Request, res: Response, next) => {
   try {
     const driverId = req.driver!.sub;

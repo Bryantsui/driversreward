@@ -38,6 +38,12 @@ interface RewardsApi {
         @Body request: SubmitActivityFeedRequest
     ): Response<ActivityFeedResponse>
 
+    @POST("api/ingest/raw-bonuses")
+    suspend fun submitRawBonuses(
+        @Header("Authorization") token: String,
+        @Body request: SubmitRawBonusesRequest
+    ): Response<SubmitRawBonusesResponse>
+
     @GET("api/rewards/balance")
     suspend fun getBalance(@Header("Authorization") token: String): Response<BalanceResponse>
 
@@ -291,4 +297,24 @@ data class RedemptionItem(
     val failureReason: String? = null,
     val createdAt: String = "",
     val fulfilledAt: String? = null
+)
+
+data class BonusItem(
+    val uuid: String,
+    val activityType: String,
+    val activityTitle: String,
+    val formattedTotal: String,
+    val recognizedAt: Long,
+    val rawPayload: Any? = null
+)
+
+data class SubmitRawBonusesRequest(
+    val bonuses: List<BonusItem>,
+    val source: String = "android_app"
+)
+
+data class SubmitRawBonusesResponse(
+    val processed: Int,
+    val created: Int,
+    val duplicates: Int
 )
