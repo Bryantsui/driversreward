@@ -323,6 +323,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           activityTitle: b.activityTitle || '',
           formattedTotal: b.formattedTotal || '',
           recognizedAt: b.recognizedAt || 0,
+          formattedDate: b._detailFormattedDate || undefined,
+          description: b._detailDescription || undefined,
+          eventType: b.type || undefined,
+          incentiveUuid: b._detailIncentiveUuid || undefined,
         }));
 
         const res = await fetch(`${auth.serverUrl}/api/ingest/raw-bonuses`, {

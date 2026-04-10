@@ -47,3 +47,5 @@ uber_api_capture.py
 # Service account keys
 play-service-account.json
 *.json.bak
+bonus_api_logs/
+capture_bonus_api.py

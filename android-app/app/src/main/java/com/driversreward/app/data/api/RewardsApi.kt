@@ -305,6 +305,10 @@ data class BonusItem(
     val activityTitle: String,
     val formattedTotal: String,
     val recognizedAt: Long,
+    val formattedDate: String? = null,
+    val description: String? = null,
+    val eventType: String? = null,
+    val incentiveUuid: String? = null,
     val rawPayload: Any? = null
 )
 

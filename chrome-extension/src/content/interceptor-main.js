@@ -315,7 +315,43 @@
     });
 
     if (uniqueBonuses.length > 0) {
-      console.log(`[DriversReward] Found ${uniqueBonuses.length} bonus/quest activities`);
+      console.log(`[DriversReward] Found ${uniqueBonuses.length} bonus/quest activities — fetching details...`);
+      for (let b = 0; b < uniqueBonuses.length; b++) {
+        const bonus = uniqueBonuses[b];
+        try {
+          const detailBody = { eventType: bonus.type || 'MISC', activityFeedUUID: bonus.uuid };
+          const webUrl = bonus.routing?.webviewUrl || '';
+          const incentiveMatch = webUrl.match(/incentiveUUID=([^&]+)/);
+          if (incentiveMatch) detailBody.incentiveUUID = incentiveMatch[1];
+          const tsMatch = webUrl.match(/timestamp=(\d+)/);
+          if (tsMatch) detailBody.timestamp = parseInt(tsMatch[1]);
+
+          const detailRes = await originalFetch(`/earnings/api/getActivityDetail?localeCode=en`, {
+            method: 'POST',
+            headers: { ...capturedHeaders, 'content-type': 'application/json' },
+            body: JSON.stringify(detailBody),
+            credentials: 'include',
+          });
+          if (detailRes.ok) {
+            const detailJson = await detailRes.json();
+            if (detailJson.status === 'success' && detailJson.data?.items) {
+              for (const item of detailJson.data.items) {
+                if (item.bodyHeaderMetadata) {
+                  bonus._detailFormattedDate = item.bodyHeaderMetadata.formattedDate || '';
+                  bonus._detailLabel = item.bodyHeaderMetadata.label || '';
+                }
+                if (item.sectionSubHeaderMetadata?.text) {
+                  bonus._detailDescription = item.sectionSubHeaderMetadata.text;
+                }
+              }
+              console.log(`[DriversReward] Bonus detail: ${bonus._detailDescription || '(no description)'}`);
+            }
+          }
+          if (b < uniqueBonuses.length - 1) await sleep(200);
+        } catch (e) {
+          console.log(`[DriversReward] Bonus detail fetch failed: ${e.message}`);
+        }
+      }
       post('UBER_BONUSES_CAPTURED', JSON.stringify(uniqueBonuses), '');
     }
 

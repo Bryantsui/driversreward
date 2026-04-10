@@ -179,6 +179,10 @@ model EarningsBonus {
   amount          Decimal  @db.Decimal(12, 2)
   currency        String   @db.VarChar(10)
   recognizedAt    DateTime @map("recognized_at") @db.Timestamptz()
+  formattedDate   String?  @map("formatted_date") @db.VarChar(100)
+  description     String?  @db.Text
+  eventType       String?  @map("event_type") @db.VarChar(50)
+  incentiveUuid   String?  @map("incentive_uuid") @db.VarChar(100)
   source          String?  @db.VarChar(30)
   rawPayload      Json?    @map("raw_payload")
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz()

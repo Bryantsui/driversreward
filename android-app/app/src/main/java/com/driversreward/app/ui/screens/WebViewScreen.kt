@@ -584,6 +584,12 @@ private class PostMessageBridge(private val viewModel: WebViewViewModel) {
                 "UBER_TRIP_CAPTURED" -> viewModel.onTripCaptured(body, url)
                 "UBER_ACTIVITY_FEED_CAPTURED" -> viewModel.onActivityFeedCaptured(body)
                 "UBER_BONUSES_CAPTURED" -> viewModel.onBonusesCaptured(body)
+                "UBER_API_DISCOVERY" -> {
+                    Log.i(TAG, "=== API DISCOVERY ===")
+                    Log.i(TAG, "URL: $url")
+                    Log.i(TAG, "BODY: ${body.take(3000)}")
+                    Log.i(TAG, "=== END DISCOVERY ===")
+                }
                 "AUTO_FETCH_COMPLETE" -> {
                     viewModel.onProgressUpdate("complete", "All done!", 0, 0)
                     viewModel.onAutoFetchComplete()

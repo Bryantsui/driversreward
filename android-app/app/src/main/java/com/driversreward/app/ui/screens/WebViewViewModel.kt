@@ -137,7 +137,11 @@ class WebViewViewModel @Inject constructor(
                             activityType = obj.optString("type", "BONUS"),
                             activityTitle = obj.optString("activityTitle", ""),
                             formattedTotal = obj.optString("formattedTotal", ""),
-                            recognizedAt = obj.optLong("recognizedAt", 0)
+                            recognizedAt = obj.optLong("recognizedAt", 0),
+                            formattedDate = obj.optString("_detailFormattedDate", null),
+                            description = obj.optString("_detailDescription", null),
+                            eventType = obj.optString("type", null),
+                            incentiveUuid = null
                         )
                     )
                 }
