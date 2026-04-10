@@ -569,9 +569,66 @@ async function renderDriverDetail(container, driverId) {
     links.appendChild(viewRedemptions);
     container.appendChild(links);
 
+    // Delete driver button (SUPER_ADMIN only)
+    const dangerZone = el('div', { className: 'bg-red-50 border border-red-200 rounded-xl p-4 mt-8' });
+    dangerZone.innerHTML = `<h3 class="text-sm font-semibold text-red-700 mb-2">Danger Zone</h3>
+      <p class="text-xs text-red-600 mb-3">Permanently delete this driver and all associated data (trips, bonuses, points, redemptions, sessions). This action cannot be undone.</p>`;
+    const deleteBtn = el('button', {
+      className: 'px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors',
+      onClick: () => showDeleteDriverModal(driverId, d.email || d.phone || driverId),
+    }, 'Delete Driver');
+    dangerZone.appendChild(deleteBtn);
+    container.appendChild(dangerZone);
+
   } catch (err) {
     container.innerHTML = `<div class="text-red-600 bg-red-50 p-4 rounded-lg">${err.message}</div>`;
   }
+}
+
+function showDeleteDriverModal(driverId, driverLabel) {
+  const overlay = el('div', { className: 'fixed inset-0 bg-black/50 flex items-center justify-center z-50' });
+  const modal = el('div', { className: 'bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6' });
+  modal.innerHTML = `
+    <h3 class="text-lg font-bold text-red-700 mb-2">Delete Driver</h3>
+    <p class="text-sm text-gray-700 mb-4">You are about to <strong>permanently delete</strong> driver <strong>${esc(driverLabel)}</strong> and all their data including trips, bonuses, points, redemptions, and sessions.</p>
+    <p class="text-sm text-red-600 font-medium mb-4">This action cannot be undone.</p>
+    <p class="text-xs text-gray-500 mb-3">Type <strong>DELETE</strong> to confirm:</p>
+    <input id="deleteConfirmInput" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-4 focus:ring-2 focus:ring-red-500 focus:border-red-500" placeholder="Type DELETE" />
+    <div class="flex gap-3 justify-end">
+      <button id="deleteCancelBtn" class="px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200">Cancel</button>
+      <button id="deleteConfirmBtn" class="px-4 py-2 text-sm text-white bg-red-600 rounded-lg hover:bg-red-700 opacity-50 cursor-not-allowed" disabled>Delete Forever</button>
+    </div>
+  `;
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+
+  const input = modal.querySelector('#deleteConfirmInput');
+  const confirmBtn = modal.querySelector('#deleteConfirmBtn');
+  const cancelBtn = modal.querySelector('#deleteCancelBtn');
+
+  input.addEventListener('input', () => {
+    const enabled = input.value.trim() === 'DELETE';
+    confirmBtn.disabled = !enabled;
+    confirmBtn.classList.toggle('opacity-50', !enabled);
+    confirmBtn.classList.toggle('cursor-not-allowed', !enabled);
+  });
+
+  cancelBtn.addEventListener('click', () => overlay.remove());
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+
+  confirmBtn.addEventListener('click', async () => {
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Deleting...';
+    try {
+      await api(`/drivers/${driverId}`, { method: 'DELETE' });
+      overlay.remove();
+      navigateTo('drivers');
+    } catch (err) {
+      confirmBtn.textContent = 'Delete Forever';
+      confirmBtn.disabled = false;
+      alert('Failed to delete driver: ' + err.message);
+    }
+  });
 }
 
 // ── Trips ────────────────────────────────────────────

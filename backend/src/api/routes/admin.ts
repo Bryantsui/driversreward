@@ -452,6 +452,73 @@ router.post(
   },
 );
 
+// Permanently delete a driver and all associated data (super_admin only)
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+router.delete(
+  '/drivers/:id',
+  requireRole('SUPER_ADMIN'),
+  async (req: Request, res: Response, next) => {
+    try {
+      const driverId = req.params.id as string;
+      if (!UUID_RE.test(driverId)) {
+        res.status(400).json({ error: 'Invalid driver ID format' });
+        return;
+      }
+
+      const driver = await prisma.driver.findUnique({
+        where: { id: driverId },
+        select: { id: true, email: true, phone: true },
+      });
+      if (!driver) {
+        res.status(404).json({ error: 'Driver not found' });
+        return;
+      }
+
+      await prisma.$transaction(async (tx) => {
+        // Delete in dependency order (children first)
+        await tx.pointLedger.deleteMany({ where: { driverId } });
+        await tx.earningsBonus.deleteMany({ where: { driverId } });
+        await tx.activitySync.deleteMany({ where: { driverId } });
+        await tx.redemption.deleteMany({ where: { driverId } });
+        await tx.refreshToken.deleteMany({ where: { driverId } });
+        await tx.consent.deleteMany({ where: { driverId } });
+        await tx.uberSession.deleteMany({ where: { driverId } });
+        await tx.uberCredential.deleteMany({ where: { driverId } });
+        await tx.scrapeJob.deleteMany({ where: { driverId } });
+        await tx.auditLog.deleteMany({ where: { driverId } });
+        await tx.trip.deleteMany({ where: { driverId } });
+
+        // Clear referral references from other drivers pointing to this one
+        await tx.driver.updateMany({
+          where: { referredBy: driverId },
+          data: { referredBy: null },
+        });
+
+        await tx.driver.delete({ where: { id: driverId } });
+
+        // Audit inside the transaction so it's atomic with the deletion
+        await tx.auditLog.create({
+          data: {
+            adminId: req.admin!.sub,
+            action: 'DELETE_DRIVER',
+            resource: 'driver',
+            resourceId: driverId,
+            metadata: { deletedEmail: driver.email, deletedPhone: driver.phone },
+          },
+        });
+      });
+
+      res.json({
+        action: 'deleted',
+        message: `Driver ${driver.email || driver.phone} and all associated data permanently deleted`,
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 // ═══════════════ SCRAPE MONITORING ═══════════════
 
 router.get('/scrape-jobs', authenticateAdmin, async (req: Request, res: Response, next) => {
