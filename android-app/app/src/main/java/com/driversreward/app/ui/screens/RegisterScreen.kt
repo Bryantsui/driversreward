@@ -108,7 +108,7 @@ fun RegisterScreen(
     val selectedCountry = COUNTRY_CODES.find { it.code == uiState.countryCode } ?: COUNTRY_CODES[0]
 
     Column(
-        modifier = Modifier.fillMaxSize().background(White).padding(horizontal = 28.dp).verticalScroll(rememberScrollState()),
+        modifier = Modifier.fillMaxSize().background(White).imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 28.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Spacer(modifier = Modifier.height(60.dp))

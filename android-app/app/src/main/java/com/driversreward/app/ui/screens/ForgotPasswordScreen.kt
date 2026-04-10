@@ -2,8 +2,10 @@ package com.driversreward.app.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Phone
@@ -93,7 +95,7 @@ fun ForgotPasswordScreen(
     val selectedCountry = COUNTRY_CODES.find { it.code == uiState.countryCode } ?: COUNTRY_CODES[0]
 
     Column(
-        modifier = Modifier.fillMaxSize().background(White).padding(horizontal = 28.dp),
+        modifier = Modifier.fillMaxSize().background(White).imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 28.dp),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center
     ) {
         Text("Reset Password", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Indigo700)
