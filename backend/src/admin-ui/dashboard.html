@@ -282,6 +282,7 @@ function navigateTo(hash) {
     case 'driver': renderDriverDetail(content, rest[0]); break;
     case 'driver-bonuses': renderDriverBonuses(content, rest[0]); break;
     case 'driver-ledger': renderDriverLedger(content, rest[0]); break;
+    case 'bonus-detail': renderBonusDetail(content, rest[0]); break;
     case 'trips': renderTrips(content); break;
     case 'trip': renderTripDetail(content, rest[0]); break;
     case 'redemptions': renderRedemptions(content); break;
@@ -1012,8 +1013,10 @@ async function renderTripDetail(container, tripId) {
     container.innerHTML = '';
     container.classList.add('fade-in');
 
-    const back = el('button', { className: 'text-sm text-indigo-600 hover:text-indigo-800 mb-4 flex items-center gap-1', onClick: () => navigateTo('trips') });
-    back.innerHTML = '&larr; Back to Trips';
+    const backTarget = t.driver?.id ? `driver/${t.driver.id}` : 'trips';
+    const backLabel = t.driver?.id ? '&larr; Back to Driver' : '&larr; Back to Trips';
+    const back = el('button', { className: 'text-sm text-indigo-600 hover:text-indigo-800 mb-4 flex items-center gap-1', onClick: () => navigateTo(backTarget) });
+    back.innerHTML = backLabel;
     container.appendChild(back);
 
     // Header
@@ -1279,14 +1282,14 @@ async function renderDriverBonuses(container, driverId) {
     </tr></thead>`;
     const tbody = el('tbody', { className: 'divide-y divide-gray-100' });
     for (const b of data.bonuses) {
-      const tr = el('tr', { className: 'hover:bg-gray-50' });
+      const tr = el('tr', { className: 'hover:bg-gray-50 cursor-pointer', onClick: () => navigateTo(`bonus-detail/${b.id}`) });
       const typeColor = b.activityType === 'QUEST' ? 'bg-purple-100 text-purple-700'
         : b.activityType === 'BONUS' ? 'bg-emerald-100 text-emerald-700'
         : b.activityType === 'MISC' ? 'bg-amber-100 text-amber-700'
         : 'bg-blue-100 text-blue-700';
       tr.innerHTML = `
         <td class="px-4 py-3"><span class="px-2 py-0.5 rounded-full text-xs font-medium ${typeColor}">${esc(b.activityType)}</span></td>
-        <td class="px-4 py-3 font-medium">${esc(b.activityTitle)}</td>
+        <td class="px-4 py-3 font-medium text-indigo-600">${esc(b.activityTitle)}</td>
         <td class="px-4 py-3 text-right font-mono">${esc(b.formattedTotal)}</td>
         <td class="px-4 py-3 text-gray-500">${b.formattedDate ? esc(b.formattedDate) : fmtDateTime(b.recognizedAt)}</td>
         <td class="px-4 py-3 text-gray-600 max-w-xs truncate" title="${esc(b.description || '')}">${esc(b.description || '—')}</td>
@@ -1296,6 +1299,108 @@ async function renderDriverBonuses(container, driverId) {
     }
     table.appendChild(tbody);
     container.appendChild(table);
+
+  } catch (err) {
+    container.innerHTML = `<div class="text-red-600 bg-red-50 p-4 rounded-lg">${err.message}</div>`;
+  }
+}
+
+// ── Bonus Detail ─────────────────────────────────────
+async function renderBonusDetail(container, bonusId) {
+  if (!bonusId) { navigateTo('drivers'); return; }
+  try {
+    const b = await api(`/bonuses/${bonusId}`);
+    container.innerHTML = '';
+    container.classList.add('fade-in');
+
+    const back = el('button', {
+      className: 'text-sm text-indigo-600 hover:text-indigo-800 mb-4 flex items-center gap-1',
+      onClick: () => navigateTo(b.driverId ? `driver-bonuses/${b.driverId}` : 'drivers'),
+    });
+    back.innerHTML = '&larr; Back to Bonuses';
+    container.appendChild(back);
+
+    const typeColor = b.activityType === 'QUEST' ? 'bg-purple-100 text-purple-700'
+      : b.activityType === 'BONUS' ? 'bg-emerald-100 text-emerald-700'
+      : b.activityType === 'MISC' ? 'bg-amber-100 text-amber-700'
+      : 'bg-blue-100 text-blue-700';
+
+    const hdr = el('div', { className: 'bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6' });
+    hdr.innerHTML = `
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 class="text-xl font-bold text-gray-900">${esc(b.activityTitle)}</h2>
+          <div class="flex items-center gap-2 mt-1">
+            <span class="px-2 py-0.5 rounded-full text-xs font-medium ${typeColor}">${esc(b.activityType)}</span>
+            ${regionBadge(b.region)}
+          </div>
+        </div>
+        <div class="text-right">
+          <p class="text-3xl font-bold text-gray-900">${esc(b.formattedTotal)}</p>
+          <p class="text-sm text-gray-500">${fmtCurrency(b.amount, b.currency)}</p>
+        </div>
+      </div>
+    `;
+    container.appendChild(hdr);
+
+    const details = el('div', { className: 'bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-6' });
+    let html = `
+      <h3 class="text-sm font-semibold text-gray-700 mb-4">Details</h3>
+      <dl class="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+        <dt class="text-gray-500">Bonus UUID</dt><dd class="font-mono text-xs break-all">${esc(b.bonusUuid)}</dd>
+        <dt class="text-gray-500">Activity Type</dt><dd>${esc(b.activityType)}</dd>
+        <dt class="text-gray-500">Event Type</dt><dd>${esc(b.eventType || '—')}</dd>
+        <dt class="text-gray-500">Recognized At</dt><dd>${fmtDateTime(b.recognizedAt)}</dd>
+        <dt class="text-gray-500">Formatted Date</dt><dd>${esc(b.formattedDate || '—')}</dd>
+        <dt class="text-gray-500">Currency</dt><dd>${esc(b.currency)}</dd>
+        <dt class="text-gray-500">Amount</dt><dd class="font-mono">${b.amount}</dd>
+        <dt class="text-gray-500">Incentive UUID</dt><dd class="font-mono text-xs break-all">${esc(b.incentiveUuid || '—')}</dd>
+        <dt class="text-gray-500">Source</dt><dd>${esc(b.source || '—')}</dd>
+        <dt class="text-gray-500">Created At</dt><dd>${fmtDateTime(b.createdAt)}</dd>
+      </dl>
+    `;
+
+    if (b.description) {
+      html += `
+        <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
+          <span class="font-medium">Description:</span> ${esc(b.description)}
+        </div>`;
+    }
+
+    if (b.driver) {
+      html += `
+        <h4 class="text-sm font-semibold text-gray-700 mt-5 mb-3">Driver</h4>
+        <dl class="text-sm">
+          <dt class="text-gray-500">Name / Phone</dt><dd><a class="text-indigo-600 hover:underline cursor-pointer" onclick="navigateTo('driver/${esc(b.driver.id)}')">${esc(b.driver.phone || b.driver.email || '—')}</a></dd>
+          <dt class="text-gray-500 mt-1">Region</dt><dd>${esc(b.driver.region) || '—'}</dd>
+        </dl>`;
+    }
+
+    details.innerHTML = html;
+    container.appendChild(details);
+
+    if (b.rawPayload) {
+      const payloadSection = el('div', { className: 'mb-6' });
+      const toggle = el('button', {
+        className: 'text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2 hover:text-indigo-600',
+        onClick: () => {
+          const viewer = payloadSection.querySelector('.json-viewer');
+          const arrow = payloadSection.querySelector('.arrow');
+          if (viewer.classList.contains('hidden')) {
+            viewer.classList.remove('hidden');
+            arrow.textContent = '▼';
+          } else {
+            viewer.classList.add('hidden');
+            arrow.textContent = '▶';
+          }
+        },
+      });
+      toggle.innerHTML = '<span class="arrow">▶</span> Raw Uber API Response';
+      payloadSection.appendChild(toggle);
+      const viewer = el('div', { className: 'json-viewer hidden', html: syntaxHighlightJSON(b.rawPayload) });
+      payloadSection.appendChild(viewer);
+      container.appendChild(payloadSection);
+    }
 
   } catch (err) {
     container.innerHTML = `<div class="text-red-600 bg-red-50 p-4 rounded-lg">${err.message}</div>`;

@@ -303,6 +303,22 @@ router.get('/drivers/:id/bonuses', async (req: Request, res: Response, next) => 
   }
 });
 
+// Single bonus detail
+router.get('/bonuses/:id', async (req: Request, res: Response, next) => {
+  try {
+    const bonus = await prisma.earningsBonus.findUnique({
+      where: { id: req.params.id as string },
+      include: {
+        driver: { select: { id: true, email: true, phone: true, region: true, status: true } },
+      },
+    });
+    if (!bonus) return res.status(404).json({ error: 'Bonus not found' });
+    res.json(bonus);
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Redemptions list
 router.get('/redemptions', async (req: Request, res: Response, next) => {
   try {
