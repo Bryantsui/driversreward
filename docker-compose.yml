@@ -7,7 +7,7 @@ services:
       - "3000:3000"
     environment:
       DATABASE_URL: postgresql://rewards:rewards_secret@postgres:5432/driversreward
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://:changeme_local_dev@redis:6379
       JWT_ACCESS_SECRET: dev_access_secret_change_me_in_production_min_32_chars
       JWT_REFRESH_SECRET: dev_refresh_secret_change_me_in_production_min_32_chars
       ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
@@ -34,7 +34,7 @@ services:
       POSTGRES_USER: rewards
       POSTGRES_PASSWORD: rewards_secret
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -47,10 +47,10 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
-    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
+      - "127.0.0.1:6379:6379"
+    command: redis-server --maxmemory 128mb --maxmemory-policy noeviction --requirepass changeme_local_dev
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "changeme_local_dev", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
