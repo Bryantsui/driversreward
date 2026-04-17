@@ -41,6 +41,13 @@ export interface ParsedTrip {
   promotions: number;
   netEarnings: number;
 
+  customerPayment: number;
+  uberServiceFee: number;
+  cashCollected: number;
+  tripBalance: number;
+  upfrontFare: number;
+  commissionRate?: number;
+
   fareBreakdown: BreakdownItem[];
 
   isPoolType: boolean;
@@ -74,6 +81,12 @@ function isNegative(str: string | undefined | null): boolean {
 function extractDistrict(fullAddress: string): string {
   if (!fullAddress) return '';
   const parts = fullAddress.split(',').map((s) => s.trim());
+  // Brazilian format: "Street, Neighborhood - City - State, PostalCode, BR"
+  // Try to extract the neighborhood from "Neighborhood - City" segment
+  for (const part of parts) {
+    const dashSegments = part.split(' - ').map((s) => s.trim());
+    if (dashSegments.length >= 2) return dashSegments[0];
+  }
   if (parts.length >= 2) return parts[parts.length - 2];
   return parts[0];
 }
@@ -85,6 +98,8 @@ function extractCoordsFromMapUrl(url: string): {
   const result: any = {};
   try {
     const decoded = decodeURIComponent(url);
+
+    // Google Maps format: pickup-pin|lat,lng
     const pickupMatch = decoded.match(/pickup-pin[^|]*\|(?:scale:\d\|)?(-?[\d.]+),(-?[\d.]+)/);
     if (pickupMatch) {
       result.pickupLat = parseFloat(pickupMatch[1]);
@@ -94,6 +109,25 @@ function extractCoordsFromMapUrl(url: string): {
     if (dropoffMatch) {
       result.dropoffLat = parseFloat(dropoffMatch[1]);
       result.dropoffLng = parseFloat(dropoffMatch[2]);
+    }
+
+    // Uber static-maps format: marker=lat:XX$lng:YY$icon:...pickup-pin...
+    if (!result.pickupLat) {
+      const markers = decoded.match(/marker=([^&]+)/g) || [];
+      for (const m of markers) {
+        const latM = m.match(/lat[:%3A]+(-?[\d.]+)/);
+        const lngM = m.match(/lng[:%3A]+(-?[\d.]+)/);
+        if (!latM || !lngM) continue;
+        const lat = parseFloat(latM[1]);
+        const lng = parseFloat(lngM[1]);
+        if (m.includes('pickup')) {
+          result.pickupLat = lat;
+          result.pickupLng = lng;
+        } else if (m.includes('dropoff')) {
+          result.dropoffLat = lat;
+          result.dropoffLng = lng;
+        }
+      }
     }
   } catch {}
   return result;
@@ -165,6 +199,11 @@ export function parseUberTripResponse(rawBody: string, tripUuid: string): Parsed
       surcharges: 0,
       promotions: 0,
       netEarnings: 0,
+      customerPayment: 0,
+      uberServiceFee: 0,
+      cashCollected: 0,
+      tripBalance: 0,
+      upfrontFare: 0,
       fareBreakdown: [],
       rawPayloadHash: createHash('sha256').update(rawBody).digest('hex'),
       parseWarnings: [],
@@ -207,7 +246,7 @@ export function parseUberTripResponse(rawBody: string, tripUuid: string): Parsed
     // --- image: map URL + coordinates ---
     const imgComp = findComp('image');
     const mapUrl = imgComp?.image?.url || metadata.customRouteMap || '';
-    if (mapUrl && mapUrl.includes('maps.googleapis.com')) {
+    if (mapUrl && (mapUrl.includes('maps.googleapis.com') || mapUrl.includes('static-maps.uber.com'))) {
       result.mapImageUrl = mapUrl;
       const coords = extractCoordsFromMapUrl(mapUrl);
       if (coords.pickupLat) result.pickupLat = coords.pickupLat;
@@ -337,6 +376,70 @@ export function parseUberTripResponse(rawBody: string, tripUuid: string): Parsed
       // Other earnings (top-level only)
       if (node.depth === 0 && (label.includes('other earning') || label.includes('outros ganhos'))) {
         result.otherEarnings = node.amount;
+      }
+    }
+
+    // --- Extract data from additional card types (BR-specific) ---
+    for (const card of data.cards || []) {
+      // Customer fare breakdown (TripAllPartiesBreakdownCard)
+      if (card.type === 'TripAllPartiesBreakdownCard') {
+        for (const comp of card.components || []) {
+          if (comp.breakdownListV2?.items) {
+            for (const item of comp.breakdownListV2.items) {
+              const label = (item.label || '').toLowerCase().trim();
+              const val = parseAmount(item.formattedValue);
+              if (label.includes('customer payment') || label.includes('pagamento')) {
+                result.customerPayment = Math.abs(val);
+              }
+              if (label.includes('paid to uber') || label.includes('pago à uber') || label.includes('pago ao uber')) {
+                result.uberServiceFee = Math.abs(val);
+              }
+            }
+          }
+        }
+      }
+
+      // Commission rate (TripEffectiveCommissionRateCard)
+      if (card.type === 'TripEffectiveCommissionRateCard') {
+        for (const comp of card.components || []) {
+          const text = comp.styledIconLink?.title?.text || '';
+          const pctMatch = text.match(/([\d.]+)%/);
+          if (pctMatch) result.commissionRate = parseFloat(pctMatch[1]);
+        }
+      }
+
+      // Upfront fare (SpotUfpBreakdownCard)
+      if (card.type === 'SpotUfpBreakdownCard') {
+        for (const comp of card.components || []) {
+          if (comp.breakdownListV2?.items) {
+            for (const item of comp.breakdownListV2.items) {
+              const label = (item.label || '').toLowerCase();
+              if (label === 'total' || label === 'fare') {
+                result.upfrontFare = parseAmount(item.formattedValue);
+              }
+            }
+          }
+        }
+      }
+
+      // Cash collected & trip balance from TripBreakdownCardV2
+      if (card.type === 'TripBreakdownCardV2') {
+        for (const comp of card.components || []) {
+          if (comp.breakdownListV2?.items) {
+            for (const item of comp.breakdownListV2.items) {
+              const label = (item.label || '').toLowerCase();
+              if (label === 'trip balance' || label === 'saldo da viagem') {
+                result.tripBalance = parseAmount(item.formattedValue);
+              }
+              for (const sub of item.items || []) {
+                const subLabel = (sub.label || '').toLowerCase();
+                if (subLabel.includes('cash collected') || subLabel.includes('dinheiro coletado')) {
+                  result.cashCollected = Math.abs(parseAmount(sub.formattedValue));
+                }
+              }
+            }
+          }
+        }
       }
     }
 

@@ -1,0 +1,17 @@
+{
+  "seq": 2,
+  "timestamp": "2026-04-10T10:38:14.888896",
+  "method": "POST",
+  "url": "https://drivers.uber.com/earnings/api/getECRSummaryConfiguration?localeCode=en-GB",
+  "path": "/earnings/api/getECRSummaryConfiguration?localeCode=en-GB",
+  "status_code": 200,
+  "request_body": {},
+  "response_body": {
+    "status": "success",
+    "data": {
+      "ecrEnabled": false,
+      "enabledSinceTimestamp": 0
+    }
+  },
+  "content_type": "application/json; charset=utf-8"
+}

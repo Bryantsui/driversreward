@@ -126,6 +126,14 @@ model Trip {
   promotions      Decimal  @default(0) @db.Decimal(12, 2)
   netEarnings     Decimal  @map("net_earnings") @db.Decimal(12, 2)
 
+  // Customer-side breakdown (extracted from TripAllPartiesBreakdownCard)
+  customerPayment Decimal? @default(0) @map("customer_payment") @db.Decimal(12, 2)
+  uberServiceFee  Decimal? @default(0) @map("uber_service_fee") @db.Decimal(12, 2)
+  cashCollected   Decimal? @default(0) @map("cash_collected") @db.Decimal(12, 2)
+  tripBalance     Decimal? @default(0) @map("trip_balance") @db.Decimal(12, 2)
+  upfrontFare     Decimal? @default(0) @map("upfront_fare") @db.Decimal(12, 2)
+  commissionRate  Decimal? @map("commission_rate") @db.Decimal(5, 2)
+
   // Full fare breakdown tree (recursive structure from Uber API, preserves every line item)
   fareBreakdown   Json?    @map("fare_breakdown")
 

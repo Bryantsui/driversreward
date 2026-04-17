@@ -1,0 +1,19 @@
+{
+  "seq": 6,
+  "timestamp": "2026-04-10T10:38:16.756870",
+  "method": "POST",
+  "url": "https://drivers.uber.com/earnings/api/getStatementHistory?localeCode=en-GB",
+  "path": "/earnings/api/getStatementHistory?localeCode=en-GB",
+  "status_code": 403,
+  "request_body": {
+    "month": 1,
+    "year": 2026
+  },
+  "response_body": {
+    "status": "failure",
+    "data": {
+      "message": "bd.error.too_many_requests"
+    }
+  },
+  "content_type": "application/json; charset=utf-8"
+}

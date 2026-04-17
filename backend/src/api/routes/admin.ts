@@ -216,7 +216,7 @@ router.get('/trips/:id', async (req: Request, res: Response, next) => {
     const trip = await prisma.trip.findUnique({
       where: { id: req.params.id as string },
       include: {
-        driver: { select: { id: true, email: true, region: true, status: true } },
+        driver: { select: { id: true, email: true, phone: true, region: true, status: true } },
         pointLedger: { select: { amount: true, type: true, createdAt: true } },
       },
     });

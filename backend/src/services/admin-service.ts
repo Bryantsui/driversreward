@@ -191,7 +191,7 @@ export async function getTripsForReview(filters: DashboardFilters) {
     prisma.trip.findMany({
       where,
       include: {
-        driver: { select: { id: true, email: true, region: true } },
+        driver: { select: { id: true, email: true, phone: true, region: true } },
       },
       orderBy: { createdAt: 'desc' },
       skip: (filters.page - 1) * filters.limit,
@@ -393,7 +393,7 @@ export async function getSessionHealth() {
   const sessions = await prisma.uberSession.findMany({
     where: { isActive: true },
     include: {
-      driver: { select: { id: true, email: true, region: true } },
+      driver: { select: { id: true, email: true, phone: true, region: true } },
     },
     orderBy: { lastHeartbeat: 'desc' },
   });
@@ -442,7 +442,7 @@ export async function getAllRedemptions(filters: {
     prisma.redemption.findMany({
       where,
       include: {
-        driver: { select: { id: true, email: true, region: true } },
+        driver: { select: { id: true, email: true, phone: true, region: true } },
         giftCard: { select: { id: true, name: true, provider: true, faceValue: true, currency: true, pointsCost: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -622,7 +622,7 @@ export async function getScrapeJobsList(filters: { status?: string; page: number
     prisma.scrapeJob.findMany({
       where,
       include: {
-        driver: { select: { id: true, email: true, region: true } },
+        driver: { select: { id: true, email: true, phone: true, region: true } },
       },
       orderBy: { createdAt: 'desc' },
       skip: (filters.page - 1) * filters.limit,
@@ -637,7 +637,7 @@ export async function getScrapeJobsList(filters: { status?: string; page: number
 export async function getCredentialHealth() {
   const credentials = await prisma.uberCredential.findMany({
     include: {
-      driver: { select: { id: true, email: true, region: true } },
+      driver: { select: { id: true, email: true, phone: true, region: true } },
     },
     orderBy: { capturedAt: 'desc' },
   });

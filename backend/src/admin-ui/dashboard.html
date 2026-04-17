@@ -920,7 +920,7 @@ async function loadTripsTable(wrap, rootContainer) {
         <td class="px-3 py-2.5 text-sm text-right">${fmtCurrency(t.netEarnings, t.currency)}</td>
         <td class="px-3 py-2.5 text-sm text-right font-medium">${fmt(t.pointsAwarded)}</td>
         <td class="px-3 py-2.5 text-sm">${reviewBadge(t.reviewStatus)}</td>
-        <td class="px-3 py-2.5 text-sm"><a class="text-indigo-600 hover:underline cursor-pointer drv-link" data-drv="${esc(t.driver?.id)}">${esc(t.driver?.email) || '—'}</a></td>
+        <td class="px-3 py-2.5 text-sm"><a class="text-indigo-600 hover:underline cursor-pointer drv-link" data-drv="${esc(t.driver?.id)}">${esc(t.driver?.phone || t.driver?.email || '—')}</a>${parseFloat(t.cashCollected || 0) > 0 ? ' <span class="text-xs text-amber-600" title="Cash trip">💵</span>' : ''}</td>
         <td class="px-3 py-2.5 text-sm">
           <div class="flex gap-1">
             ${t.reviewStatus !== 'APPROVED' ? `<button class="review-btn text-xs px-2 py-0.5 rounded bg-green-100 text-green-700 hover:bg-green-200" data-id="${t.id}" data-action="APPROVED">✓</button>` : ''}
@@ -1118,11 +1118,25 @@ async function renderTripDetail(container, tripId) {
       fareHtml += '<p class="text-sm text-gray-400">No breakdown data available</p>';
     }
 
+    // Customer fare breakdown (BR-specific)
+    const hasCustData = parseFloat(t.customerPayment || 0) > 0 || parseFloat(t.cashCollected || 0) > 0;
+    if (hasCustData) {
+      fareHtml += `<h4 class="text-sm font-semibold text-gray-700 mt-5 mb-3">Customer & Cash Breakdown</h4>
+        <dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+          ${parseFloat(t.customerPayment) > 0 ? `<dt class="text-gray-500">Customer Paid</dt><dd class="font-mono">${fmtCurrency(t.customerPayment, t.currency)}</dd>` : ''}
+          ${parseFloat(t.uberServiceFee) > 0 ? `<dt class="text-gray-500">Uber's Cut</dt><dd class="font-mono text-red-600">-${fmtCurrency(t.uberServiceFee, t.currency)}</dd>` : ''}
+          ${t.commissionRate ? `<dt class="text-gray-500">Commission Rate</dt><dd class="font-mono">${t.commissionRate}%</dd>` : ''}
+          ${parseFloat(t.upfrontFare) > 0 ? `<dt class="text-gray-500">Upfront Fare</dt><dd class="font-mono">${fmtCurrency(t.upfrontFare, t.currency)}</dd>` : ''}
+          ${parseFloat(t.cashCollected) > 0 ? `<dt class="text-gray-500">Cash Collected</dt><dd class="font-mono text-amber-600">${fmtCurrency(t.cashCollected, t.currency)}</dd>` : ''}
+          ${t.tripBalance !== undefined && t.tripBalance !== null && parseFloat(t.tripBalance) !== 0 ? `<dt class="text-gray-500">Trip Balance</dt><dd class="font-mono ${parseFloat(t.tripBalance) < 0 ? 'text-red-600' : 'text-green-600'}">${fmtCurrency(t.tripBalance, t.currency)}</dd>` : ''}
+        </dl>`;
+    }
+
     // Driver info
     fareHtml += `
       <h4 class="text-sm font-semibold text-gray-700 mt-5 mb-3">Driver</h4>
       <dl class="text-sm">
-        <dt class="text-gray-500">Email</dt><dd><a class="text-indigo-600 hover:underline cursor-pointer" onclick="navigateTo('driver/${esc(t.driver?.id)}')">${esc(t.driver?.email) || '—'}</a></dd>
+        <dt class="text-gray-500">Driver</dt><dd><a class="text-indigo-600 hover:underline cursor-pointer" onclick="navigateTo('driver/${esc(t.driver?.id)}')">${esc(t.driver?.phone || t.driver?.email || '—')}</a></dd>
         <dt class="text-gray-500 mt-1">Region</dt><dd>${esc(t.driver?.region) || '—'}</dd>
       </dl>
     `;
